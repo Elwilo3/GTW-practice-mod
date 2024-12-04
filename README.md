@@ -16,12 +16,12 @@ A practice mod for Get To Work that allows players to create checkpoints and tel
 
 2. **Download and Install the Mod:**
    - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeMod.dll)
-   - Extract TeleportMod.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`(This is made after you run the game once with the BepInEx unzipped folder in the game directory)
+   - Move PracticeMod.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`(This is made after you run the game once with the BepInEx unzipped folder in the game directory)
 
 ## Uninstallation (For Legal Speedruns.com)
 1. **Simple Method (Temporary)**
    - Just remove PracticeMod.dll from the plugins folder(place it in download or something idk)
-   - The game will run without the mod but BepInEx will remain installed
+   - The game will run normally without the mod but BepInEx will remain installed
 
 2. **Complete Removal (For Official Runs)**
    - Delete PracticeMod.dll from `Get To Work/BepInEx/plugins`
@@ -29,6 +29,7 @@ A practice mod for Get To Work that allows players to create checkpoints and tel
      - BepInEx folder
      - winhttp.dll
      - doorstop_config.ini
+     - changelog.txt
    - Verify game files through Steam to ensure clean installation
 
 ## Usage

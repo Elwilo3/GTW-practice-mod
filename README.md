@@ -41,3 +41,5 @@ I put the raw cs files in the rawcscode.cs feel free to use it if you want(dont 
 
 ## Credits
 Created [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch (give me a follow😄)
+
+![Glizzy](https://villacocina.com/wp-content/uploads/2023/04/Mexican-Hotdogs-WEBSITE-scaled.jpg)

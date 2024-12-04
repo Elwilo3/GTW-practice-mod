@@ -2,12 +2,6 @@
 
 A practice mod for Get To Work that allows players to create checkpoints and teleport for easier practice.
 
-## Features
-- Custom checkpoint creation and management
-- Preset locations for key points in the game
-- Forward teleportation with adjustable distance
-- Menu for customazinion
-
 
 1. **Download and Install BepInEx:**
    - Download [BepInEx_x64_5.4.22.0.zip](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/BepInEx_win_x64_5.4.23.2.zip)
@@ -34,10 +28,12 @@ A practice mod for Get To Work that allows players to create checkpoints and tel
    - Verify game files through Steam to ensure clean installation
 
 ## Usage
-- Tab: Open/close teleport menu
-- Close menu: Confirms current choices
-- T: Teleport forward with set distance
+- Tab: Open/close Mod Menu
 - O: Teleport to selected checkpoint
+- Close menu: Confirms current choices
+- N: Enable Noclip and creative mod❗(New)
+- Navigate to the control menu in the mod menu and make you own keybinds(even for controller)❗(New)
+
 
 ## Note
 This mod is for practice only and not allowed in speedrun submissions!

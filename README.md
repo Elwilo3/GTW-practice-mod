@@ -29,6 +29,7 @@ A practice mod for Get To Work that allows players to create checkpoints and tel
      - BepInEx folder
      - winhttp.dll
      - doorstop_config.ini
+     - .doorstop_version
      - changelog.txt
    - Verify game files through Steam to ensure clean installation
 

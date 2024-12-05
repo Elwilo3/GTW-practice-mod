@@ -1,6 +1,6 @@
 # Get To Work Mod
 
-A practice mod for Get To Work that allows players to create checkpoints and teleport for easier practice.
+A practice mod for Get To Work that allows players to create checkpoints and NoCLip for easier practice.
 
 
 1. **Download and Install BepInEx:**
@@ -29,10 +29,13 @@ A practice mod for Get To Work that allows players to create checkpoints and tel
 
 ## Usage
 - Tab: Open/close Mod Menu
-- O: Teleport to selected checkpoint
+   - Make custom Keybinds even for controller❗(New)
+   - Change diffrent options for the mods like game speed and noclip speed
+   - Teleport to any section of the game
 - Close menu: Confirms current choices
-- N: Enable Noclip and creative mod❗(New)
-- Navigate to the control menu in the mod menu and make you own keybinds(even for controller)❗(New)
+- O: Teleport to selected checkpoint
+- N: Enable Noclip and creative mod
+- Q: Change game speed
 
 
 ## Note

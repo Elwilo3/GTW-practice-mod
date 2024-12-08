@@ -1,50 +1,75 @@
 # Get To Work Mod
-
 A practice mod for Get To Work that allows players to create checkpoints and NoCLip for easier practice.
 
+# VIDEO INSTALLATION GUIDE (skip to 2:04) 
+   - [video](https://www.youtube.com/watch?v=_EK-lcjYsJo)
+   - Note: Some features shown in the video may be outdated as the mod has been updated with new features
 
 1. **Download and Install BepInEx:**
    - Download [BepInEx_x64_5.4.22.0.zip](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/BepInEx_win_x64_5.4.23.2.zip)
-   - Extract ALL contents into your Get To Work game folder(click "Browse local files" on your steam game)
+   - Extract ALL contents into your Get To Work game folder (click "Browse local files" on your steam game)
    - Run the game once and close it
 
 2. **Download and Install the Mod:**
-   - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeMod.dll)
-   - Move PracticeMod.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`(This is made after you run the game once with the BepInEx unzipped folder in the game directory)
+   - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeMod.dll) and ❗(New and Optional)[UpdateChecker.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/UpdateChecker.dll)
+   - Move PracticeMod.dll and UpdateChecker.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`
 
-## Uninstallation (For Legal Speedruns.com)
-1. **Simple Method (Temporary)**
-   - Just remove PracticeMod.dll from the plugins folder(place it in download or something idk)
-   - The game will run normally without the mod but BepInEx will remain installed
+## New Features & Improvements
+- Improved UI with categorized menus (Movement, Checkpoints, Controls)
+- Custom keybinds with controller support *(maybe havent tested controller)
+- Temporary checkpoint system (Quick save/load positions)'
+- GitHub Update Checker (optional, remove UpdateChecker.dll if unwanted)
+- Enhanced NoClip controls with adjustable speed
+- "Freeze After Teleport" option
+- Improved checkpoint management system
+- Time scale control with adjustable speeds
+- Better preset locations for main game progression
+- Fixed many minor and medium bugs some remain (I will fix them later)
 
-2. **Complete Removal (For Official Runs)**
-   - Delete PracticeMod.dll from `Get To Work/BepInEx/plugins`
-   - Delete the following folders/files from your game directory:
-     - BepInEx folder
+## Controls & Usage
+- Tab: Open/close Mod Menu
+- Customizable keybinds for:
+  - NoClip toggle
+  - Teleport
+  - Time Scale
+  - Temporary Checkpoint
+- Quick teleport: Ctrl + Click on checkpoint
+- Menu Categories:
+  - Movement: NoClip and Time Scale settings
+  - Checkpoints: Create, manage, and teleport
+  - Controls: Customize keybinds
+
+## Uninstallation
+1. **Temporary Removal:**
+   - Remove PracticeMod.dll and UpdateChecker.dll from the plugins folder
+   - Game will run normally without mod features
+
+2. **Complete Removal:**
+   - Delete PracticeMod.dll and UpdateChecker.dll
+   - Remove BepInEx folder and associated files:
      - winhttp.dll
      - doorstop_config.ini
      - .doorstop_version
      - changelog.txt
-   - Verify game files through Steam to ensure clean installation
-
-## Usage
-- Tab: Open/close Mod Menu
-   - Make custom Keybinds even for controller❗(New)
-   - Change diffrent options for the mods like game speed and noclip speed
-   - Teleport to any section of the game
-- Close menu: Confirms current choices
-- O: Teleport to selected checkpoint
-- N: Enable Noclip and creative mod
-- Q: Change game speed
-
+   - Verify game files through Steam
 
 ## Note
 This mod is for practice only and not allowed in speedrun submissions!
-I put the raw cs files in the rawcscode.cs feel free to use it if you want(dont know how legable it is).
+Source code available in rawcscode.cs for reference.
 
-⚠️ **Important:** Make sure to completely remove all mod files before submitting speedruns to Isto(No need to bother him)!
+⚠️ **Important:** Remove all mod files before submitting speedruns!
+
+## Coming Soon™ (if I figure it out)
+- Disabling ragdoll option
+- Freecam
+- Custom Player speed settings
+- Custom Gravity
+- Custom Friction
+- Split resets when restarting levels
+- Custom automatic split zones
+- Bingo Board vs mode(Square challanges: beat a section, spesfic grindset podcast, fall x meters, but this might no be possible or fun🤷)
 
 ## Credits
-Created [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch (give me a follow😄)
+Created by [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch and @potatokiller80yucki21dookieman67 on Discord
 
 ![Glizzy](https://villacocina.com/wp-content/uploads/2023/04/Mexican-Hotdogs-WEBSITE-scaled.jpg)

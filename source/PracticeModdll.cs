@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using System;
+using System.Collections;
 
 namespace SpeedrunPracticeMod
 {
@@ -22,10 +23,10 @@ namespace SpeedrunPracticeMod
         private Dictionary<string, CheckpointData> presetCheckpoints = new Dictionary<string, CheckpointData>()
 {
     { "Spawn", new CheckpointData(new Vector3(-390.3687f, 144.25f, 112.2642f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Unpaid Intern", new CheckpointData(new Vector3(-170.3318f, 234.25f, 122.8188f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Warehouse Worker", new CheckpointData(new Vector3(-208.2579f, 97.25f, 139.1872f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Warehouse Trainee", new CheckpointData(new Vector3(-242.1583f, 83.25997f, 133.4567f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
     { "Interview", new CheckpointData(new Vector3(-289.6071f, 195.25f, 82.85135f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+    { "Warehouse Trainee", new CheckpointData(new Vector3(-242.1583f, 83.25997f, 133.4567f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+    { "Warehouse Worker", new CheckpointData(new Vector3(-208.2579f, 97.25f, 139.1872f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+    { "Unpaid Intern", new CheckpointData(new Vector3(-170.3318f, 234.25f, 122.8188f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
     { "Junior Financial Analyst", new CheckpointData(new Vector3(-131.5249f, 304.6553f, 78.66881f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
     { "Wine Mixer", new CheckpointData(new Vector3(-86.7677f, 405.25f, -24.72382f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
     { "Middle Manger Interview", new CheckpointData(new Vector3(-99.91953f, 503.8748f, -14.55534f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
@@ -101,6 +102,7 @@ namespace SpeedrunPracticeMod
         private ConfigEntry<KeyCode> noclipKey;
         private ConfigEntry<KeyCode> teleportKey;
         private ConfigEntry<KeyCode> timeScaleKey;
+        private ConfigEntry<KeyCode> tempCheckpointKey;
         private bool showingControls = false;
         private KeyCode? waitingForKey = null;
         private string waitingForKeyBinding = "";
@@ -114,13 +116,17 @@ namespace SpeedrunPracticeMod
         private enum MenuCategory { None, Movement, Checkpoints, Controls }
         private MenuCategory currentCategory = MenuCategory.None;
 
+        // CheckPoint 
+        private CheckpointData temporaryCheckpoint = null;
+        private const string TEMP_CHECKPOINT_NAME = "Temporary Checkpoint";
+
         // Noclip variables
         private Rigidbody playerRigidbody;
         private Collider playerCollider;
         private float moveSpeed = 10f;
         private float fastMultiplier = 3f;
         private bool isNoclipActive = false;
-        private bool keepNoclipAfterTeleport = false;
+        private bool keepNoclipAfterTeleport = true;
         private bool waitingForMovement = false;
 
         private void Awake()
@@ -130,6 +136,7 @@ namespace SpeedrunPracticeMod
             noclipKey = Config.Bind("Controls", "NoclipKey", KeyCode.N, "Key to toggle noclip mode");
             teleportKey = Config.Bind("Controls", "TeleportKey", KeyCode.O, "Key to teleport to selected checkpoint");
             timeScaleKey = Config.Bind("Controls", "TimeScaleKey", KeyCode.P, "Key to toggle time scale");
+            tempCheckpointKey = Config.Bind("Controls", "TempCheckpointKey", KeyCode.C, "Key to set temporary checkpoint");
 
             saveFilePath = Path.Combine(Paths.ConfigPath, "customcheckpoints.txt");
             LoadCheckpoints();
@@ -153,7 +160,7 @@ namespace SpeedrunPracticeMod
         private void DrawMovementMenu(MenuLayout layout)
         {
             // Noclip Settings
-            GUI.Box(layout.GetRect(140), "Movement Settings");
+            GUI.Box(layout.GetRect(30), "NoClip settings");
 
             moveSpeed = DrawLabeledSlider(layout, "Speed", moveSpeed, 1f, 50f);
             fastMultiplier = DrawLabeledSlider(layout, "Fast Multiplier", fastMultiplier, 1f, 10f);
@@ -162,7 +169,7 @@ namespace SpeedrunPracticeMod
             layout.AddSpace(PADDING);
 
             // Time Control Settings
-            GUI.Box(layout.GetRect(100), "Time Control Settings");
+            GUI.Box(layout.GetRect(30), "Time Control Settings");
 
             timeScaleValue = DrawLabeledSlider(layout, "Time Scale", timeScaleValue, 0.01f, 20f, "F2");
             isTimeScaleActive = DrawToggleButton(layout, "Apply Time Scale", "Reset Time Scale", isTimeScaleActive);
@@ -170,7 +177,7 @@ namespace SpeedrunPracticeMod
 
         private void DrawControlsMenu(MenuLayout layout)
         {
-            GUI.Box(layout.GetRect(160), "Controls");
+            GUI.Box(layout.GetRect(30), "Keybinds");
 
             if (waitingForKey.HasValue)
             {
@@ -191,6 +198,9 @@ namespace SpeedrunPracticeMod
                             break;
                         case "TimeScale":
                             timeScaleKey.Value = e.keyCode;
+                            break;
+                        case "TempCheckpoint":
+                            tempCheckpointKey.Value = e.keyCode;
                             break;
                     }
                     waitingForKey = null;
@@ -218,6 +228,11 @@ namespace SpeedrunPracticeMod
                 {
                     waitingForKey = timeScaleKey.Value;
                     waitingForKeyBinding = "TimeScale";
+                }
+                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Temp Checkpoint Key: {tempCheckpointKey.Value}"))
+                {
+                    waitingForKey = tempCheckpointKey.Value;
+                    waitingForKeyBinding = "TempCheckpoint";
                 }
             }
         }
@@ -269,7 +284,10 @@ namespace SpeedrunPracticeMod
                     Cursor.lockState = CursorLockMode.Locked;
                 }
             }
-
+            if (Input.GetKeyDown(tempCheckpointKey.Value))
+            {
+                SetTemporaryCheckpoint();
+            }
             if (Input.GetKeyDown(timeScaleKey.Value))
             {
                 ToggleTimeScale();
@@ -286,6 +304,23 @@ namespace SpeedrunPracticeMod
             }
         }
 
+        private void SetTemporaryCheckpoint()
+        {
+            if (playerTransform != null && mainCamera != null)
+            {
+                Vector3 currentVelocity = playerRigidbody != null ? playerRigidbody.velocity : Vector3.zero;
+                temporaryCheckpoint = new CheckpointData(
+                    playerTransform.position,
+                    currentVelocity,
+                    playerTransform.rotation,
+                    mainCamera.transform.rotation
+                );
+                selectedCheckpoint = TEMP_CHECKPOINT_NAME;
+                showingPresets = false;
+                ShowNotification("Temporary checkpoint set!");
+            }
+        }
+
         private void ToggleTimeScale()
         {
             isTimeScaleActive = !isTimeScaleActive;
@@ -296,11 +331,11 @@ namespace SpeedrunPracticeMod
         private void DrawCheckpointsMenu(MenuLayout layout)
         {
             // Checkpoint Settings Box
-            GUI.Box(layout.GetRect(60), "Checkpoint Settings");
+            GUI.Box(layout.GetRect(0), "");
             keepNoclipAfterTeleport = GUI.Toggle(
                 layout.GetElementRect(20),
                 keepNoclipAfterTeleport,
-                "Keep Noclip After Teleport (until movement)"
+                "Freeze After Teleporting"
             );
 
             // Toggle between preset and custom checkpoints
@@ -342,7 +377,7 @@ namespace SpeedrunPracticeMod
             else
             {
                 // Custom Checkpoints
-                GUI.Box(layout.GetRect(280), "Custom Checkpoints");
+                GUI.Box(layout.GetRect(30), "Custom Checkpoints");
 
                 // New checkpoint creation
                 GUI.Label(layout.GetElementRect(20), "New Checkpoint:");
@@ -385,7 +420,20 @@ namespace SpeedrunPracticeMod
                     }
                     currentY += 25;
                 }
-
+                // Show temporary checkpoint if it exists
+                if (temporaryCheckpoint != null)
+                {
+                    Rect tempRect = layout.GetElementRect(23);
+                    if (GUI.Button(new Rect(0, tempRect.y, tempRect.width - 30, 23), TEMP_CHECKPOINT_NAME))
+                    {
+                        selectedCheckpoint = TEMP_CHECKPOINT_NAME;
+                        if (Input.GetKey(KeyCode.LeftControl))
+                        {
+                            TeleportToCustomCheckpoint(TEMP_CHECKPOINT_NAME);
+                        }
+                    }
+                    layout.AddSpace(2);
+                }
                 GUI.EndScrollView();
 
                 // Process checkpoint deletions
@@ -401,8 +449,8 @@ namespace SpeedrunPracticeMod
             }
 
             // Help text
-            GUI.Box(layout.GetRect(40), "");
-            GUI.Label(layout.GetElementRect(30),
+            GUI.Box(layout.GetRect(0), "");
+            GUI.Label(layout.GetElementRect(40),
                 $"Ctrl + Click to quick teleport\nPress {teleportKey.Value} to teleport to selected checkpoint");
         }
         private void OnGUI()
@@ -427,7 +475,7 @@ namespace SpeedrunPracticeMod
             float buttonWidth = (MENU_WIDTH - 40) / 3;
             float buttonY = 40;
 
-            if (GUI.Button(new Rect(menuX + 20, buttonY, buttonWidth, 30), "Noclip"))
+            if (GUI.Button(new Rect(menuX + 20, buttonY, buttonWidth, 30), "Movement"))
             {
                 currentCategory = currentCategory == MenuCategory.Movement ? MenuCategory.None : MenuCategory.Movement;
             }
@@ -475,6 +523,9 @@ namespace SpeedrunPracticeMod
                             break;
                         case "TimeScale":
                             timeScaleKey.Value = e.keyCode;
+                            break;
+                        case "TempCheckpoint":
+                            tempCheckpointKey.Value = e.keyCode;
                             break;
                     }
                     waitingForKey = null;
@@ -550,6 +601,10 @@ namespace SpeedrunPracticeMod
                 if (GUI.Button(buttonRect, checkpoint.Key))
                 {
                     selectedCheckpoint = checkpoint.Key;
+                    if (selectedCheckpoint != TEMP_CHECKPOINT_NAME)
+                    {
+                        temporaryCheckpoint = null;
+                    }
                     if (Input.GetKey(KeyCode.LeftControl))
                     {
                         TeleportToCustomCheckpoint(selectedCheckpoint);
@@ -631,6 +686,12 @@ namespace SpeedrunPracticeMod
 
         private void TeleportToCustomCheckpoint(string checkpointName)
         {
+            if (checkpointName == TEMP_CHECKPOINT_NAME && temporaryCheckpoint != null)
+            {
+                TeleportToCheckpoint(temporaryCheckpoint);
+                return;
+            }
+
             if (customCheckpoints.TryGetValue(checkpointName, out CheckpointData data))
             {
                 TeleportToCheckpoint(data);
@@ -658,26 +719,16 @@ namespace SpeedrunPracticeMod
             }
         }
 
-        private void EnableNoclip()
-        {
-            isNoclipActive = true;
-            if (playerRigidbody != null)
-            {
-                playerRigidbody.isKinematic = true;
-            }
-            if (playerCollider != null)
-            {
-                playerCollider.enabled = false;
-            }
-            ShowNotification("Noclip Enabled");
-        }
+
 
         private void DisableNoclip()
         {
             isNoclipActive = false;
             if (playerRigidbody != null)
             {
+                // Set isKinematic back to false
                 playerRigidbody.isKinematic = false;
+                // Do not change useGravity or reset velocities
             }
             if (playerCollider != null)
             {
@@ -687,15 +738,73 @@ namespace SpeedrunPracticeMod
             ShowNotification("Noclip Disabled");
         }
 
+        private void EnableNoclip()
+        {
+            isNoclipActive = true;
+            if (playerRigidbody != null)
+            {
+                // Only set isKinematic to true
+                playerRigidbody.isKinematic = true;
+                // Do not change useGravity or reset velocities
+            }
+            if (playerCollider != null)
+            {
+                playerCollider.enabled = false;
+            }
+            ShowNotification("Noclip Enabled");
+        }
+
+
         private void ToggleNoclip()
         {
+            // Get the PlayerController and PlayerRagdoll components
+            var playerController = playerTransform.GetComponent<Isto.GTW.Player.PlayerController>();
+            var playerRagdoll = playerTransform.GetComponent<Isto.GTW.Player.PlayerRagdoll>();
+
             if (isNoclipActive)
             {
                 DisableNoclip();
+                // Wait one frame to ensure physics are properly reset
+                StartCoroutine(ResetPhysicsNextFrame());
             }
             else
             {
-                EnableNoclip();
+                // Check if player is in ragdoll state
+                if (playerController != null && playerController.IsRagdollState)
+                {
+                    // Disable ragdoll before enabling noclip
+                    if (playerRagdoll != null)
+                    {
+                        playerRagdoll.SetRagdollActive(false, false);
+                    }
+                    // Change to move state
+                    playerController.ChangeToMoveState();
+                    // Wait a frame to ensure ragdoll is fully disabled
+                    StartCoroutine(EnableNoclipNextFrame());
+                }
+                else
+                {
+                    EnableNoclip();
+                }
+            }
+        }
+        private IEnumerator EnableNoclipNextFrame()
+        {
+            yield return new WaitForFixedUpdate();
+            EnableNoclip();
+        }
+        private IEnumerator ResetPhysicsNextFrame()
+        {
+            yield return new WaitForFixedUpdate();
+            var playerController = playerTransform.GetComponent<Isto.GTW.Player.PlayerController>();
+            if (playerController != null)
+            {
+                // Only reset velocity and change state if not in ragdoll
+                if (!playerController.IsRagdollState)
+                {
+                    playerController.ResetVelocityToZero();
+                    playerController.ChangeToMoveState();
+                }
             }
         }
 

@@ -59,7 +59,7 @@ Source code available in rawcscode.cs for reference.
 
 ⚠️ **Important:** Remove all mod files before submitting speedruns!
 
-## Coming Soon™ (if I figure it out)
+## Coming Soon™ (if I figure it out and bother)
 - Disabling ragdoll option
 - Freecam
 - Custom Player speed settings

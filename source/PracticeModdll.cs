@@ -5,6 +5,11 @@ using System.Collections.Generic;
 using System.IO;
 using System;
 using System.Collections;
+using HarmonyLib;
+using Isto.GTW.Player;
+using System.Reflection;
+using Isto.Core.StateMachine;
+using Isto.GTW.Player.States;
 
 namespace SpeedrunPracticeMod
 {
@@ -21,21 +26,21 @@ namespace SpeedrunPracticeMod
 
         private Dictionary<string, CheckpointData> customCheckpoints = new Dictionary<string, CheckpointData>();
         private Dictionary<string, CheckpointData> presetCheckpoints = new Dictionary<string, CheckpointData>()
-{
-    { "Spawn", new CheckpointData(new Vector3(-390.3687f, 144.25f, 112.2642f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Interview", new CheckpointData(new Vector3(-289.6071f, 195.25f, 82.85135f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Warehouse Trainee", new CheckpointData(new Vector3(-242.1583f, 83.25997f, 133.4567f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Warehouse Worker", new CheckpointData(new Vector3(-208.2579f, 97.25f, 139.1872f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Unpaid Intern", new CheckpointData(new Vector3(-170.3318f, 234.25f, 122.8188f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Junior Financial Analyst", new CheckpointData(new Vector3(-131.5249f, 304.6553f, 78.66881f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Wine Mixer", new CheckpointData(new Vector3(-86.7677f, 405.25f, -24.72382f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Middle Manger Interview", new CheckpointData(new Vector3(-99.91953f, 503.8748f, -14.55534f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Middle Management", new CheckpointData(new Vector3(-92.28833f, 437.7774f, 172.3422f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Leave Company", new CheckpointData(new Vector3(-190.7224f, 487.25f, 243.2324f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Department Head", new CheckpointData(new Vector3(-156.9074f, 539.25f, 298.8533f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "Vice President", new CheckpointData(new Vector3(-95.37256f, 624.7501f, 315.2366f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
-    { "CEO", new CheckpointData(new Vector3(-79.30243f, 791.2501f, 313.3521f), Vector3.zero, Quaternion.identity, Quaternion.identity) }
-};
+    {
+        { "Spawn", new CheckpointData(new Vector3(-390.3687f, 144.25f, 112.2642f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Interview", new CheckpointData(new Vector3(-289.6071f, 195.25f, 82.85135f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Warehouse Trainee", new CheckpointData(new Vector3(-242.1583f, 83.25997f, 133.4567f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Warehouse Worker", new CheckpointData(new Vector3(-208.2579f, 97.25f, 139.1872f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Unpaid Intern", new CheckpointData(new Vector3(-170.3318f, 234.25f, 122.8188f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Junior Financial Analyst", new CheckpointData(new Vector3(-131.5249f, 304.6553f, 78.66881f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Wine Mixer", new CheckpointData(new Vector3(-86.7677f, 405.25f, -24.72382f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Middle Manger Interview", new CheckpointData(new Vector3(-99.91953f, 503.8748f, -14.55534f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Middle Management", new CheckpointData(new Vector3(-92.28833f, 437.7774f, 172.3422f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Leave Company", new CheckpointData(new Vector3(-190.7224f, 487.25f, 243.2324f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Department Head", new CheckpointData(new Vector3(-156.9074f, 539.25f, 298.8533f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "Vice President", new CheckpointData(new Vector3(-95.37256f, 624.7501f, 315.2366f), Vector3.zero, Quaternion.identity, Quaternion.identity) },
+        { "CEO", new CheckpointData(new Vector3(-79.30243f, 791.2501f, 313.3521f), Vector3.zero, Quaternion.identity, Quaternion.identity) }
+    };
         private class MenuLayout
         {
             public float MenuX { get; private set; }
@@ -103,6 +108,8 @@ namespace SpeedrunPracticeMod
         private ConfigEntry<KeyCode> teleportKey;
         private ConfigEntry<KeyCode> timeScaleKey;
         private ConfigEntry<KeyCode> tempCheckpointKey;
+        private ConfigEntry<KeyCode> physicsModKey;
+        private ConfigEntry<KeyCode> ragdollToggleKey;
         private bool showingControls = false;
         private KeyCode? waitingForKey = null;
         private string waitingForKeyBinding = "";
@@ -129,17 +136,83 @@ namespace SpeedrunPracticeMod
         private bool keepNoclipAfterTeleport = true;
         private bool waitingForMovement = false;
 
+        // Ball Physics variables
+        private PlayerController playerController;
+        private TorquePhysics torquePhysics;
+        private bool valuesStored = false;
+
+        // Original values storage
+        private float originalFriction;
+        private float originalAcceleration;
+        private float originalDrag;
+
+        // Custom physics values
+        private float customFriction = 1.0f;
+        private float customAcceleration = 200f;
+        private float customDrag = 0.01f;
+        private float minSpeed = 10f;
+
+        // Individual toggle flags
+        private bool frictionModEnabled = false;
+        private bool accelerationModEnabled = false;
+        private bool dragModEnabled = false;
+        private bool constantSpeedModEnabled = false;
+        private bool ballVisualizerEnabled = false;
+
+        // Mod master switches
+        private bool physicsModEnabled = false;
+        private bool ragdollEnabled = true;
+
+        public static PracticeMod Instance;
+
+        private Harmony harmony;
+
         private void Awake()
         {
+            Instance = this;
+
             // Config setup
             menuKey = Config.Bind("Controls", "MenuKey", KeyCode.Tab, "Key to toggle the practice menu");
             noclipKey = Config.Bind("Controls", "NoclipKey", KeyCode.N, "Key to toggle noclip mode");
             teleportKey = Config.Bind("Controls", "TeleportKey", KeyCode.O, "Key to teleport to selected checkpoint");
             timeScaleKey = Config.Bind("Controls", "TimeScaleKey", KeyCode.P, "Key to toggle time scale");
             tempCheckpointKey = Config.Bind("Controls", "TempCheckpointKey", KeyCode.C, "Key to set temporary checkpoint");
+            physicsModKey = Config.Bind("Controls", "PhysicsModKey", KeyCode.K, "Key to toggle physics mod");
+            ragdollToggleKey = Config.Bind("Controls", "RagdollToggleKey", KeyCode.R, "Key to toggle ragdoll effect");
 
             saveFilePath = Path.Combine(Paths.ConfigPath, "customcheckpoints.txt");
             LoadCheckpoints();
+
+            // Harmony setup
+            harmony = new Harmony("com.Palmblom.SpeedrunPracticeMod");
+
+            try
+            {
+                // Patch TorquePhysics.UpdateTorque
+                var torqueMethod = typeof(TorquePhysics).GetMethod("UpdateTorque", BindingFlags.NonPublic | BindingFlags.Instance);
+                var prefix = typeof(PracticeMod).GetMethod(nameof(UpdateTorquePrefix), BindingFlags.NonPublic | BindingFlags.Static);
+                harmony.Patch(torqueMethod, new HarmonyMethod(prefix));
+
+                // Patch PlayerController.UpdateDirectionalVectorsAndSpeed
+                var speedMethod = typeof(PlayerController).GetMethod("UpdateDirectionalVectorsAndSpeed", BindingFlags.Public | BindingFlags.Instance);
+                var postfix = typeof(PracticeMod).GetMethod(nameof(UpdateDirectionalVectorsAndSpeedPostfix), BindingFlags.NonPublic | BindingFlags.Static);
+                harmony.Patch(speedMethod, null, new HarmonyMethod(postfix));
+
+                // Patch PlayerRagdoll.CollisionHit
+                var collisionHitMethod = typeof(PlayerRagdoll).GetMethod("CollisionHit");
+                var collisionHitPrefix = typeof(PracticeMod).GetMethod(nameof(CollisionHitPrefix), BindingFlags.NonPublic | BindingFlags.Static);
+                harmony.Patch(collisionHitMethod, new HarmonyMethod(collisionHitPrefix));
+
+                // Patch GTWPlayerRagdollState.Enter
+                var ragdollEnterMethod = typeof(GTWPlayerRagdollState).GetMethod("Enter");
+                var ragdollEnterPrefix = typeof(PracticeMod).GetMethod(nameof(RagdollStateEnterPrefix), BindingFlags.NonPublic | BindingFlags.Static);
+                harmony.Patch(ragdollEnterMethod, new HarmonyMethod(ragdollEnterPrefix));
+
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to apply Harmony patches: {e.Message}");
+            }
         }
 
         private float DrawLabeledSlider(MenuLayout layout, string label, float value, float min, float max, string format = "F1")
@@ -173,6 +246,67 @@ namespace SpeedrunPracticeMod
 
             timeScaleValue = DrawLabeledSlider(layout, "Time Scale", timeScaleValue, 0.01f, 20f, "F2");
             isTimeScaleActive = DrawToggleButton(layout, "Apply Time Scale", "Reset Time Scale", isTimeScaleActive);
+
+            layout.AddSpace(PADDING);
+
+            GUI.Box(layout.GetRect(30), "Physics Settings");
+
+            // Physics Mod Master Switch
+            physicsModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), physicsModEnabled, "Enable Physics Mods");
+
+            // Physics Mod Keybind Info
+            GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT), $"Enable Physics Mods Key: {physicsModKey.Value}");
+            
+
+            layout.AddSpace(PADDING);
+
+            // Individual toggles and settings
+
+            // Friction Mod
+            frictionModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), frictionModEnabled, "Modify Friction");
+            if (frictionModEnabled)
+            {
+                customFriction = DrawLabeledSlider(layout, "Friction", customFriction, 0f, 250f, "F2");
+                if (physicsModEnabled)
+                    ApplyCustomFriction();
+            }
+
+            layout.AddSpace(PADDING);
+
+            // Acceleration Mod
+            accelerationModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), accelerationModEnabled, "Modify Acceleration");
+            if (accelerationModEnabled)
+            {
+                customAcceleration = DrawLabeledSlider(layout, "Acceleration", customAcceleration, 0f, 2000f, "F1");
+            }
+
+            layout.AddSpace(PADDING);
+
+            // Drag Mod
+            dragModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), dragModEnabled, "Modify Drag");
+            if (dragModEnabled)
+            {
+                customDrag = DrawLabeledSlider(layout, "Drag", customDrag, 0f, 100f, "F2");
+            }
+
+            layout.AddSpace(PADDING);
+
+            // Constant Speed Mod
+            constantSpeedModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), constantSpeedModEnabled, "Maintain Minimum Speed");
+            if (constantSpeedModEnabled)
+            {
+                minSpeed = DrawLabeledSlider(layout, "Min Speed", minSpeed, 0f, 500f, "F1");
+            }
+
+            layout.AddSpace(PADDING);
+
+            // Ball Visualizer
+            bool previousBallVisualizerEnabled = ballVisualizerEnabled;
+            ballVisualizerEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), ballVisualizerEnabled, "Show Ball");
+            if (ballVisualizerEnabled != previousBallVisualizerEnabled)
+            {
+                ShowNotification($"Ball Visualizer: {(ballVisualizerEnabled ? "Enabled" : "Disabled")}");
+            }
         }
 
         private void DrawControlsMenu(MenuLayout layout)
@@ -201,6 +335,12 @@ namespace SpeedrunPracticeMod
                             break;
                         case "TempCheckpoint":
                             tempCheckpointKey.Value = e.keyCode;
+                            break;
+                        case "PhysicsMod":
+                            physicsModKey.Value = e.keyCode;
+                            break;
+                        case "RagdollToggle":
+                            ragdollToggleKey.Value = e.keyCode;
                             break;
                     }
                     waitingForKey = null;
@@ -234,6 +374,16 @@ namespace SpeedrunPracticeMod
                     waitingForKey = tempCheckpointKey.Value;
                     waitingForKeyBinding = "TempCheckpoint";
                 }
+                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Physics Mod Key: {physicsModKey.Value}"))
+                {
+                    waitingForKey = physicsModKey.Value;
+                    waitingForKeyBinding = "PhysicsMod";
+                }
+                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Ragdoll Toggle Key: {ragdollToggleKey.Value}"))
+                {
+                    waitingForKey = ragdollToggleKey.Value;
+                    waitingForKeyBinding = "RagdollToggle";
+                }
             }
         }
 
@@ -254,6 +404,85 @@ namespace SpeedrunPracticeMod
             if (mainCamera == null)
             {
                 mainCamera = Camera.main;
+            }
+
+            if (playerController == null)
+            {
+                playerController = FindObjectOfType<PlayerController>();
+                if (playerController != null && !valuesStored)
+                {
+                    StoreOriginalValues();
+                }
+            }
+
+            // Process physics mod adjustments
+            if (physicsModEnabled)
+            {
+                // Apply modifications only if the specific mod is enabled
+                if (frictionModEnabled)
+                {
+                    ApplyCustomFriction();
+                }
+                if (accelerationModEnabled)
+                {
+                    // The acceleration is applied in the Harmony patch
+                }
+                if (dragModEnabled)
+                {
+                    // The drag is applied in the Harmony patch
+                }
+            }
+            else
+            {
+                RestoreOriginalValues();
+            }
+
+            // Process ball visualizer
+            if (ballVisualizerEnabled)
+            {
+                if (playerController?.DebugBallTransform != null)
+                {
+                    // Show debug ball
+                    playerController.DebugBallTransform.gameObject.SetActive(true);
+                    // Hide character model
+                    var modelController = playerController.GetComponent<PlayerModelController>();
+                    if (modelController?.ModelRoot != null)
+                    {
+                        modelController.ModelRoot.gameObject.SetActive(false);
+                    }
+                }
+            }
+            else
+            {
+                if (playerController?.DebugBallTransform != null)
+                {
+                    // Hide debug ball
+                    playerController.DebugBallTransform.gameObject.SetActive(false);
+                    // Show character model
+                    var modelController = playerController.GetComponent<PlayerModelController>();
+                    if (modelController?.ModelRoot != null)
+                    {
+                        modelController.ModelRoot.gameObject.SetActive(true);
+                    }
+                }
+            }
+
+            // Keybinds for toggling physics mod
+            if (Input.GetKeyDown(physicsModKey.Value))
+            {
+                physicsModEnabled = !physicsModEnabled;
+                if (!physicsModEnabled)
+                {
+                    RestoreOriginalValues();
+                }
+                ShowNotification($"Physics Mod: {(physicsModEnabled ? "Enabled" : "Disabled")}");
+            }
+
+            // Keybind for toggling ragdoll
+            if (Input.GetKeyDown(ragdollToggleKey.Value))
+            {
+                ragdollEnabled = !ragdollEnabled;
+                ShowNotification($"Ragdoll: {(ragdollEnabled ? "Enabled" : "Disabled")}");
             }
 
             // Add this back for teleport key functionality
@@ -407,6 +636,10 @@ namespace SpeedrunPracticeMod
                     if (GUI.Button(buttonRect, checkpoint.Key))
                     {
                         selectedCheckpoint = checkpoint.Key;
+                        if (selectedCheckpoint != TEMP_CHECKPOINT_NAME)
+                        {
+                            temporaryCheckpoint = null;
+                        }
                         if (Input.GetKey(KeyCode.LeftControl))
                         {
                             TeleportToCustomCheckpoint(selectedCheckpoint);
@@ -420,20 +653,7 @@ namespace SpeedrunPracticeMod
                     }
                     currentY += 25;
                 }
-                // Show temporary checkpoint if it exists
-                if (temporaryCheckpoint != null)
-                {
-                    Rect tempRect = layout.GetElementRect(23);
-                    if (GUI.Button(new Rect(0, tempRect.y, tempRect.width - 30, 23), TEMP_CHECKPOINT_NAME))
-                    {
-                        selectedCheckpoint = TEMP_CHECKPOINT_NAME;
-                        if (Input.GetKey(KeyCode.LeftControl))
-                        {
-                            TeleportToCustomCheckpoint(TEMP_CHECKPOINT_NAME);
-                        }
-                    }
-                    layout.AddSpace(2);
-                }
+
                 GUI.EndScrollView();
 
                 // Process checkpoint deletions
@@ -527,6 +747,12 @@ namespace SpeedrunPracticeMod
                         case "TempCheckpoint":
                             tempCheckpointKey.Value = e.keyCode;
                             break;
+                        case "PhysicsMod":
+                            physicsModKey.Value = e.keyCode;
+                            break;
+                        case "RagdollToggle":
+                            ragdollToggleKey.Value = e.keyCode;
+                            break;
                     }
                     waitingForKey = null;
                     waitingForKeyBinding = "";
@@ -539,93 +765,6 @@ namespace SpeedrunPracticeMod
         {
             notificationText = text;
             notificationTime = Time.unscaledTime + 2f;
-        }
-
-
-        private void DrawPresetCheckpoints(MenuLayout layout)
-        {
-            GUI.Box(layout.GetRect(280), "Preset Locations");
-
-            Rect viewRect = layout.GetElementRect(250);
-            Rect contentRect = new Rect(0, 0, viewRect.width - 20, presetCheckpoints.Count * 25);
-
-            scrollPosition = GUI.BeginScrollView(viewRect, scrollPosition, contentRect);
-
-            float currentY = 0;
-            foreach (var checkpoint in presetCheckpoints)
-            {
-                if (GUI.Button(new Rect(0, currentY, contentRect.width, 23), checkpoint.Key))
-                {
-                    selectedCheckpoint = checkpoint.Key;
-                    if (Input.GetKey(KeyCode.LeftControl))
-                    {
-                        TeleportToPresetCheckpoint(selectedCheckpoint);
-                    }
-                }
-                currentY += 25;
-            }
-
-            GUI.EndScrollView();
-        }
-
-        private void DrawCustomCheckpoints(MenuLayout layout)
-        {
-            GUI.Box(layout.GetRect(280), "Custom Checkpoints");
-
-            // New checkpoint creation
-            GUI.Label(layout.GetElementRect(20), "New Checkpoint:");
-            Rect inputRect = layout.GetElementRect(20);
-            newCheckpointName = GUI.TextField(inputRect, newCheckpointName);
-
-            if (GUI.Button(layout.GetElementRect(25), "Create Checkpoint Here"))
-            {
-                CreateNewCheckpoint();
-            }
-
-            layout.AddSpace(PADDING);
-
-            // Saved checkpoints list
-            GUI.Label(layout.GetElementRect(20), "Saved Checkpoints:");
-
-            Rect viewRect = layout.GetElementRect(150);
-            Rect contentRect = new Rect(0, 0, viewRect.width - 20, customCheckpoints.Count * 25);
-
-            scrollPosition = GUI.BeginScrollView(viewRect, scrollPosition, contentRect);
-
-            float currentY = 0;
-            List<string> checkpointsToRemove = new List<string>();
-
-            foreach (var checkpoint in customCheckpoints)
-            {
-                Rect buttonRect = new Rect(0, currentY, contentRect.width - 30, 23);
-                if (GUI.Button(buttonRect, checkpoint.Key))
-                {
-                    selectedCheckpoint = checkpoint.Key;
-                    if (selectedCheckpoint != TEMP_CHECKPOINT_NAME)
-                    {
-                        temporaryCheckpoint = null;
-                    }
-                    if (Input.GetKey(KeyCode.LeftControl))
-                    {
-                        TeleportToCustomCheckpoint(selectedCheckpoint);
-                    }
-                }
-
-                Rect deleteRect = new Rect(contentRect.width - 25, currentY, 25, 23);
-                if (GUI.Button(deleteRect, "X"))
-                {
-                    checkpointsToRemove.Add(checkpoint.Key);
-                }
-                currentY += 25;
-            }
-
-            GUI.EndScrollView();
-
-            // Process checkpoint deletions
-            foreach (string checkpointName in checkpointsToRemove)
-            {
-                DeleteCheckpoint(checkpointName);
-            }
         }
 
         private void CreateNewCheckpoint()
@@ -717,9 +856,22 @@ namespace SpeedrunPracticeMod
                 EnableNoclip();
                 waitingForMovement = true;
             }
+
+            // Disable ragdoll after teleporting
+            if (!ragdollEnabled)
+            {
+                var playerRagdoll = playerTransform.GetComponent<PlayerRagdoll>();
+                if (playerRagdoll != null)
+                {
+                    playerRagdoll.SetRagdollActive(false, false);
+                }
+                var playerController = playerTransform.GetComponent<PlayerController>();
+                if (playerController != null)
+                {
+                    playerController.ChangeToMoveState();
+                }
+            }
         }
-
-
 
         private void DisableNoclip()
         {
@@ -753,7 +905,6 @@ namespace SpeedrunPracticeMod
             }
             ShowNotification("Noclip Enabled");
         }
-
 
         private void ToggleNoclip()
         {
@@ -919,6 +1070,135 @@ namespace SpeedrunPracticeMod
 
             // Save checkpoints before disabling
             SaveCheckpoints();
+
+            // Restore original physics values
+            RestoreOriginalValues();
+
+            // Reset ball visualizer
+            if (playerController?.DebugBallTransform != null)
+            {
+                playerController.DebugBallTransform.gameObject.SetActive(false);
+                var modelController = playerController.GetComponent<PlayerModelController>();
+                if (modelController?.ModelRoot != null)
+                {
+                    modelController.ModelRoot.gameObject.SetActive(true);
+                }
+            }
+
+            // Unpatch Harmony patches
+            harmony.UnpatchSelf();
+        }
+
+        // Ball Physics Methods
+
+        private void StoreOriginalValues()
+        {
+            if (playerController != null && !valuesStored)
+            {
+                // Store original friction values
+                if (playerController.MainBallCollider?.material != null)
+                {
+                    originalFriction = playerController.MainBallCollider.material.dynamicFriction;
+                    customFriction = originalFriction;
+                }
+                // Store original torque physics values
+                torquePhysics = playerController.TorquePhysics;
+                if (torquePhysics != null)
+                {
+                    var torqueField = typeof(TorquePhysics).GetField("torque", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (torqueField != null)
+                    {
+                        originalAcceleration = (float)torqueField.GetValue(torquePhysics);
+                        customAcceleration = originalAcceleration;
+                    }
+                    var dragField = typeof(TorquePhysics).GetField("drag", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (dragField != null)
+                    {
+                        originalDrag = (float)dragField.GetValue(torquePhysics);
+                        customDrag = originalDrag;
+                    }
+                }
+                valuesStored = true;
+                Debug.Log("Original values stored!");
+                Debug.Log($"Original Friction: {originalFriction}");
+                Debug.Log($"Original Acceleration: {originalAcceleration}");
+                Debug.Log($"Original Drag: {originalDrag}");
+            }
+        }
+
+        private void RestoreOriginalValues()
+        {
+            if (playerController?.MainBallCollider?.material != null)
+            {
+                playerController.MainBallCollider.material.dynamicFriction = originalFriction;
+                playerController.MainBallCollider.material.staticFriction = originalFriction;
+            }
+            if (torquePhysics != null)
+            {
+                var torqueField = typeof(TorquePhysics).GetField("torque", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (torqueField != null)
+                {
+                    torqueField.SetValue(torquePhysics, originalAcceleration);
+                }
+                var dragField = typeof(TorquePhysics).GetField("drag", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (dragField != null)
+                {
+                    dragField.SetValue(torquePhysics, originalDrag);
+                }
+            }
+        }
+
+        private void ApplyCustomFriction()
+        {
+            if (playerController?.MainBallCollider?.material != null)
+            {
+                playerController.MainBallCollider.material.dynamicFriction = customFriction;
+                playerController.MainBallCollider.material.staticFriction = customFriction;
+            }
+        }
+
+        private static bool UpdateTorquePrefix(TorquePhysics __instance)
+        {
+            if (!Instance.physicsModEnabled) return true;
+            if (!Instance.accelerationModEnabled && !Instance.dragModEnabled) return true;
+            var rigidbody = __instance.Rigidbody;
+            var playerController = __instance.PlayerController;
+            Vector3 movementInput = playerController.MovementInput;
+            if (Instance.accelerationModEnabled)
+            {
+                Vector3 inputTorque = Vector3.Cross(movementInput, Vector3.down) * Instance.customAcceleration;
+                rigidbody.AddTorque(inputTorque, ForceMode.Acceleration);
+            }
+            if (Instance.dragModEnabled)
+            {
+                rigidbody.drag = Instance.customDrag;
+            }
+            return false; // Skip original method
+        }
+
+        private static void UpdateDirectionalVectorsAndSpeedPostfix(PlayerController __instance)
+        {
+            if (!Instance.physicsModEnabled || !Instance.constantSpeedModEnabled) return;
+            Vector3 currentVelocity = __instance.Rigidbody.velocity;
+            Vector3 horizontalVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
+            float verticalVelocity = currentVelocity.y;
+            if (horizontalVelocity.magnitude > 0.01f)
+            {
+                horizontalVelocity = horizontalVelocity.normalized * Instance.minSpeed;
+            }
+            __instance.Rigidbody.velocity = new Vector3(horizontalVelocity.x, verticalVelocity, horizontalVelocity.z);
+        }
+
+        // Ragdoll Methods
+
+        private static bool CollisionHitPrefix(PlayerRagdoll __instance, Vector3 impulse)
+        {
+            return Instance.ragdollEnabled; // Return true to allow ragdoll, false to prevent it
+        }
+
+        private static bool RagdollStateEnterPrefix(GTWPlayerRagdollState __instance, ScriptableStateMachine controller)
+        {
+            return Instance.ragdollEnabled; // Return true to allow ragdoll state, false to prevent it
         }
     }
 }

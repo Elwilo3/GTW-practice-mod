@@ -109,7 +109,6 @@ namespace SpeedrunPracticeMod
         private ConfigEntry<KeyCode> timeScaleKey;
         private ConfigEntry<KeyCode> tempCheckpointKey;
         private ConfigEntry<KeyCode> physicsModKey;
-        private ConfigEntry<KeyCode> ragdollToggleKey;
         private bool showingControls = false;
         private KeyCode? waitingForKey = null;
         private string waitingForKeyBinding = "";
@@ -161,7 +160,6 @@ namespace SpeedrunPracticeMod
 
         // Mod master switches
         private bool physicsModEnabled = false;
-        private bool ragdollEnabled = true;
 
         public static PracticeMod Instance;
 
@@ -178,7 +176,6 @@ namespace SpeedrunPracticeMod
             timeScaleKey = Config.Bind("Controls", "TimeScaleKey", KeyCode.P, "Key to toggle time scale");
             tempCheckpointKey = Config.Bind("Controls", "TempCheckpointKey", KeyCode.C, "Key to set temporary checkpoint");
             physicsModKey = Config.Bind("Controls", "PhysicsModKey", KeyCode.K, "Key to toggle physics mod");
-            ragdollToggleKey = Config.Bind("Controls", "RagdollToggleKey", KeyCode.R, "Key to toggle ragdoll effect");
 
             saveFilePath = Path.Combine(Paths.ConfigPath, "customcheckpoints.txt");
             LoadCheckpoints();
@@ -197,16 +194,6 @@ namespace SpeedrunPracticeMod
                 var speedMethod = typeof(PlayerController).GetMethod("UpdateDirectionalVectorsAndSpeed", BindingFlags.Public | BindingFlags.Instance);
                 var postfix = typeof(PracticeMod).GetMethod(nameof(UpdateDirectionalVectorsAndSpeedPostfix), BindingFlags.NonPublic | BindingFlags.Static);
                 harmony.Patch(speedMethod, null, new HarmonyMethod(postfix));
-
-                // Patch PlayerRagdoll.CollisionHit
-                var collisionHitMethod = typeof(PlayerRagdoll).GetMethod("CollisionHit");
-                var collisionHitPrefix = typeof(PracticeMod).GetMethod(nameof(CollisionHitPrefix), BindingFlags.NonPublic | BindingFlags.Static);
-                harmony.Patch(collisionHitMethod, new HarmonyMethod(collisionHitPrefix));
-
-                // Patch GTWPlayerRagdollState.Enter
-                var ragdollEnterMethod = typeof(GTWPlayerRagdollState).GetMethod("Enter");
-                var ragdollEnterPrefix = typeof(PracticeMod).GetMethod(nameof(RagdollStateEnterPrefix), BindingFlags.NonPublic | BindingFlags.Static);
-                harmony.Patch(ragdollEnterMethod, new HarmonyMethod(ragdollEnterPrefix));
 
             }
             catch (Exception e)
@@ -339,9 +326,6 @@ namespace SpeedrunPracticeMod
                         case "PhysicsMod":
                             physicsModKey.Value = e.keyCode;
                             break;
-                        case "RagdollToggle":
-                            ragdollToggleKey.Value = e.keyCode;
-                            break;
                     }
                     waitingForKey = null;
                     waitingForKeyBinding = "";
@@ -378,11 +362,6 @@ namespace SpeedrunPracticeMod
                 {
                     waitingForKey = physicsModKey.Value;
                     waitingForKeyBinding = "PhysicsMod";
-                }
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Ragdoll Toggle Key: {ragdollToggleKey.Value}"))
-                {
-                    waitingForKey = ragdollToggleKey.Value;
-                    waitingForKeyBinding = "RagdollToggle";
                 }
             }
         }
@@ -476,13 +455,6 @@ namespace SpeedrunPracticeMod
                     RestoreOriginalValues();
                 }
                 ShowNotification($"Physics Mod: {(physicsModEnabled ? "Enabled" : "Disabled")}");
-            }
-
-            // Keybind for toggling ragdoll
-            if (Input.GetKeyDown(ragdollToggleKey.Value))
-            {
-                ragdollEnabled = !ragdollEnabled;
-                ShowNotification($"Ragdoll: {(ragdollEnabled ? "Enabled" : "Disabled")}");
             }
 
             // Add this back for teleport key functionality
@@ -750,9 +722,6 @@ namespace SpeedrunPracticeMod
                         case "PhysicsMod":
                             physicsModKey.Value = e.keyCode;
                             break;
-                        case "RagdollToggle":
-                            ragdollToggleKey.Value = e.keyCode;
-                            break;
                     }
                     waitingForKey = null;
                     waitingForKeyBinding = "";
@@ -857,20 +826,6 @@ namespace SpeedrunPracticeMod
                 waitingForMovement = true;
             }
 
-            // Disable ragdoll after teleporting
-            if (!ragdollEnabled)
-            {
-                var playerRagdoll = playerTransform.GetComponent<PlayerRagdoll>();
-                if (playerRagdoll != null)
-                {
-                    playerRagdoll.SetRagdollActive(false, false);
-                }
-                var playerController = playerTransform.GetComponent<PlayerController>();
-                if (playerController != null)
-                {
-                    playerController.ChangeToMoveState();
-                }
-            }
         }
 
         private void DisableNoclip()
@@ -1187,18 +1142,6 @@ namespace SpeedrunPracticeMod
                 horizontalVelocity = horizontalVelocity.normalized * Instance.minSpeed;
             }
             __instance.Rigidbody.velocity = new Vector3(horizontalVelocity.x, verticalVelocity, horizontalVelocity.z);
-        }
-
-        // Ragdoll Methods
-
-        private static bool CollisionHitPrefix(PlayerRagdoll __instance, Vector3 impulse)
-        {
-            return Instance.ragdollEnabled; // Return true to allow ragdoll, false to prevent it
-        }
-
-        private static bool RagdollStateEnterPrefix(GTWPlayerRagdollState __instance, ScriptableStateMachine controller)
-        {
-            return Instance.ragdollEnabled; // Return true to allow ragdoll state, false to prevent it
         }
     }
 }

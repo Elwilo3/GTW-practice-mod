@@ -11,19 +11,21 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
    - Run the game once and close it
 
 2. **Download and Install the Mod:**
-   - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeMod.dll) and ❗(New and Optional)[UpdateChecker.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/UpdateChecker.dll)
+   - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeMod.dll) and ❗(Optional)[UpdateChecker.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/UpdateChecker.dll)
    - Move PracticeMod.dll and UpdateChecker.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`
 
 ## New Features & Improvements
+- Custom Friction
+- Custom MinPlayerSpeed settings
 - Improved UI with categorized menus (Movement, Checkpoints, Controls)
-- Custom keybinds with controller support *(maybe havent tested controller)
-- Temporary checkpoint system (Quick save/load positions)'
+- Custom keybinds
+- Temporary checkpoint system (Quick save/load positions)
 - GitHub Update Checker (optional, remove UpdateChecker.dll if unwanted)
 - Enhanced NoClip controls with adjustable speed
 - "Freeze After Teleport" option
 - Improved checkpoint management system
 - Time scale control with adjustable speeds
-- Better preset locations for main game progression
+- Better/ordered preset locations for main game progression
 - Fixed many minor and medium bugs some remain (I will fix them later)
 
 ## Controls & Usage
@@ -35,7 +37,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
   - Temporary Checkpoint
 - Quick teleport: Ctrl + Click on checkpoint
 - Menu Categories:
-  - Movement: NoClip and Time Scale settings
+  - Movement: NoClip, Time Scale, and Physics settings
   - Checkpoints: Create, manage, and teleport
   - Controls: Customize keybinds
 
@@ -62,9 +64,7 @@ Source code available in rawcscode.cs for reference.
 ## Coming Soon™ (if I figure it out and bother)
 - Disabling ragdoll option
 - Freecam
-- Custom Player speed settings
 - Custom Gravity
-- Custom Friction
 - Split resets when restarting levels
 - Custom automatic split zones
 - Bingo Board vs mode(Square challanges: beat a section, spesfic grindset podcast, fall x meters, but this might no be possible or fun🤷)

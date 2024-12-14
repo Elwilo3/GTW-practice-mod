@@ -3,7 +3,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
 
 # VIDEO INSTALLATION GUIDE (skip to 2:04) 
    - [video](https://www.youtube.com/watch?v=_EK-lcjYsJo)
-   - Note: Some features shown in the video may be outdated as the mod has been updated with new features
+   - Note: Features shown in the video may be outdated as the mod has been updated with new features
 
 1. **Download and Install BepInEx:**
    - Download [BepInEx_x64_5.4.22.0.zip](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/BepInEx_win_x64_5.4.23.2.zip)
@@ -57,17 +57,9 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
 
 ## Note
 This mod is for practice only and not allowed in speedrun submissions!
-Source code available in rawcscode.cs for reference.
+Source code available in (Filename).cs for reference.
 
 ⚠️ **Important:** Remove all mod files before submitting speedruns!
-
-## Coming Soon™ (if I figure it out and bother)
-- Disabling ragdoll option
-- Freecam
-- Custom Gravity
-- Split resets when restarting levels
-- Custom automatic split zones
-- Bingo Board vs mode(Square challanges: beat a section, spesfic grindset podcast, fall x meters, but this might no be possible or fun🤷)
 
 ## Credits
 Created by [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch and @potatokiller80yucki21dookieman67 on Discord

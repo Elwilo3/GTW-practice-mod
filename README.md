@@ -62,6 +62,6 @@ Source code available in (Filename).cs for reference.
 ⚠️ **Important:** Remove all mod files before submitting speedruns!
 
 ## Credits
-Created by [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch and @potatokiller80yucki21dookieman67 on Discord
+Created by [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch
 
 ![Glizzy](https://villacocina.com/wp-content/uploads/2023/04/Mexican-Hotdogs-WEBSITE-scaled.jpg)

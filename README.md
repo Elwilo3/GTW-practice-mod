@@ -3,7 +3,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
 
 # VIDEO INSTALLATION GUIDE (skip to 2:04) 
    - [video](https://www.youtube.com/watch?v=_EK-lcjYsJo)
-   - Note: Features shown in the video may be outdated as the mod has been updated with new features
+   - Note: Features shown in the video are outdated as the mod has been updated many with new and improved features
 
 1. **Download and Install BepInEx:**
    - Download [BepInEx_x64_5.4.22.0.zip](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/BepInEx_win_x64_5.4.23.2.zip)
@@ -15,18 +15,9 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
    - Move PracticeMod.dll and UpdateChecker.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`
 
 ## New Features & Improvements
-- Custom Friction
-- Custom MinPlayerSpeed settings
-- Improved UI with categorized menus (Movement, Checkpoints, Controls)
-- Custom keybinds
-- Temporary checkpoint system (Quick save/load positions)
-- GitHub Update Checker (optional, remove UpdateChecker.dll if unwanted)
-- Enhanced NoClip controls with adjustable speed
-- "Freeze After Teleport" option
-- Improved checkpoint management system
-- Time scale control with adjustable speeds
-- Better/ordered preset locations for main game progression
-- Fixed many minor and medium bugs some remain (I will fix them later)
+- Physics settings
+- Added controller support(fr this time) go to the control menu and bind your controller controls.
+- Fixed many minor and medium bugs
 
 ## Controls & Usage
 - Tab: Open/close Mod Menu
@@ -39,7 +30,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
 - Menu Categories:
   - Movement: NoClip, Time Scale, and Physics settings
   - Checkpoints: Create, manage, and teleport
-  - Controls: Customize keybinds
+  - Controls: Customize keybinds for controller and keyboard
 
 ## Uninstallation
 1. **Temporary Removal:**
@@ -62,6 +53,7 @@ Source code available in (Filename).cs for reference.
 ⚠️ **Important:** Remove all mod files before submitting speedruns!
 
 ## Credits
-Created by [@finn_the_leech](https://www.twitch.tv/finn_the_leech) on Twitch
+Created by [@finn_the_leech](twitch.tv/finn_the_leech) on Twitch. 
+Includes contributions from [@definitelyzck](youtube.com/@definitelyzck)
 
 ![Glizzy](https://villacocina.com/wp-content/uploads/2023/04/Mexican-Hotdogs-WEBSITE-scaled.jpg)

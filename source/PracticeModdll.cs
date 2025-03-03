@@ -44,7 +44,7 @@ namespace SpeedrunPracticeMod
         private class MenuLayout
         {
             public float MenuX { get; private set; }
-            public float CurrentY { get; private set; }
+            public float CurrentY { get; set; }
             public float Width { get; private set; }
 
             public MenuLayout(float menuX, float startY, float width)
@@ -109,9 +109,15 @@ namespace SpeedrunPracticeMod
         private ConfigEntry<KeyCode> timeScaleKey;
         private ConfigEntry<KeyCode> tempCheckpointKey;
         private ConfigEntry<KeyCode> physicsModKey;
-        private bool showingControls = false;
-        private KeyCode? waitingForKey = null;
-        private string waitingForKeyBinding = "";
+        private ConfigEntry<KeyCode> controllerMenuKey;
+        private ConfigEntry<KeyCode> controllerNoclipKey;
+        private ConfigEntry<KeyCode> controllerTeleportKey;
+        private ConfigEntry<KeyCode> controllerTimeScaleKey;
+        private ConfigEntry<KeyCode> controllerTempCheckpointKey;
+        private ConfigEntry<KeyCode> controllerPhysicsModKey;
+        private bool waitingForKeyPress = false;
+        private string currentBindingAction = "";
+        private Dictionary<string, List<ConfigEntry<KeyCode>>> actionBindings = new Dictionary<string, List<ConfigEntry<KeyCode>>>();
 
         // Time Scale variables
         private bool isTimeScaleActive = false;
@@ -169,13 +175,24 @@ namespace SpeedrunPracticeMod
         {
             Instance = this;
 
-            // Config setup
+            // Keyboard config setup
             menuKey = Config.Bind("Controls", "MenuKey", KeyCode.Tab, "Key to toggle the practice menu");
             noclipKey = Config.Bind("Controls", "NoclipKey", KeyCode.N, "Key to toggle noclip mode");
             teleportKey = Config.Bind("Controls", "TeleportKey", KeyCode.O, "Key to teleport to selected checkpoint");
             timeScaleKey = Config.Bind("Controls", "TimeScaleKey", KeyCode.P, "Key to toggle time scale");
             tempCheckpointKey = Config.Bind("Controls", "TempCheckpointKey", KeyCode.C, "Key to set temporary checkpoint");
             physicsModKey = Config.Bind("Controls", "PhysicsModKey", KeyCode.K, "Key to toggle physics mod");
+
+            // Controller config setup - these will be empty by default
+            controllerMenuKey = Config.Bind("Controls", "ControllerMenuKey", KeyCode.None, "Controller button to toggle the practice menu");
+            controllerNoclipKey = Config.Bind("Controls", "ControllerNoclipKey", KeyCode.None, "Controller button to toggle noclip mode");
+            controllerTeleportKey = Config.Bind("Controls", "ControllerTeleportKey", KeyCode.None, "Controller button to teleport to selected checkpoint");
+            controllerTimeScaleKey = Config.Bind("Controls", "ControllerTimeScaleKey", KeyCode.None, "Controller button to toggle time scale");
+            controllerTempCheckpointKey = Config.Bind("Controls", "ControllerTempCheckpointKey", KeyCode.None, "Controller button to set temporary checkpoint");
+            controllerPhysicsModKey = Config.Bind("Controls", "ControllerPhysicsModKey", KeyCode.None, "Controller button to toggle physics mod");
+
+            // Set up action bindings dictionary
+            SetupActionBindings();
 
             saveFilePath = Path.Combine(Paths.ConfigPath, "customcheckpoints.txt");
             LoadCheckpoints();
@@ -200,6 +217,17 @@ namespace SpeedrunPracticeMod
             {
                 Debug.LogError($"Failed to apply Harmony patches: {e.Message}");
             }
+        }
+
+        private void SetupActionBindings()
+        {
+            actionBindings.Clear();
+            actionBindings["Menu"] = new List<ConfigEntry<KeyCode>> { menuKey, controllerMenuKey };
+            actionBindings["Noclip"] = new List<ConfigEntry<KeyCode>> { noclipKey, controllerNoclipKey };
+            actionBindings["Teleport"] = new List<ConfigEntry<KeyCode>> { teleportKey, controllerTeleportKey };
+            actionBindings["TimeScale"] = new List<ConfigEntry<KeyCode>> { timeScaleKey, controllerTimeScaleKey };
+            actionBindings["TempCheckpoint"] = new List<ConfigEntry<KeyCode>> { tempCheckpointKey, controllerTempCheckpointKey };
+            actionBindings["PhysicsMod"] = new List<ConfigEntry<KeyCode>> { physicsModKey, controllerPhysicsModKey };
         }
 
         private float DrawLabeledSlider(MenuLayout layout, string label, float value, float min, float max, string format = "F1")
@@ -243,7 +271,7 @@ namespace SpeedrunPracticeMod
 
             // Physics Mod Keybind Info
             GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT), $"Enable Physics Mods Key: {physicsModKey.Value}");
-            
+
 
             layout.AddSpace(PADDING);
 
@@ -289,7 +317,7 @@ namespace SpeedrunPracticeMod
 
             // Ball Visualizer
             bool previousBallVisualizerEnabled = ballVisualizerEnabled;
-            ballVisualizerEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), ballVisualizerEnabled, "Show Ball");
+            ballVisualizerEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), ballVisualizerEnabled, "Show Balls☺️");
             if (ballVisualizerEnabled != previousBallVisualizerEnabled)
             {
                 ShowNotification($"Ball Visualizer: {(ballVisualizerEnabled ? "Enabled" : "Disabled")}");
@@ -300,70 +328,140 @@ namespace SpeedrunPracticeMod
         {
             GUI.Box(layout.GetRect(30), "Keybinds");
 
-            if (waitingForKey.HasValue)
+            // Help text at the top
+            GUI.Box(layout.GetRect(0), "");
+            GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT * 2),
+                "Click a button to change binding\nPress Backspace to set as 'None'");
+            layout.AddSpace(5);
+
+            if (waitingForKeyPress)
             {
-                GUI.Label(layout.GetElementRect(30), $"Press any key for: {waitingForKeyBinding}");
+                GUI.Box(layout.GetRect(0), "");
+                GUI.Label(layout.GetElementRect(30), $"Press any key for: {currentBindingAction}\nPress Backspace to unbind this key");
+
+                // Check for keyboard input
                 Event e = Event.current;
                 if (e.isKey && e.type == EventType.KeyDown)
                 {
-                    switch (waitingForKeyBinding)
+                    if (e.keyCode == KeyCode.Backspace)
                     {
-                        case "Menu":
-                            menuKey.Value = e.keyCode;
-                            break;
-                        case "Noclip":
-                            noclipKey.Value = e.keyCode;
-                            break;
-                        case "Teleport":
-                            teleportKey.Value = e.keyCode;
-                            break;
-                        case "TimeScale":
-                            timeScaleKey.Value = e.keyCode;
-                            break;
-                        case "TempCheckpoint":
-                            tempCheckpointKey.Value = e.keyCode;
-                            break;
-                        case "PhysicsMod":
-                            physicsModKey.Value = e.keyCode;
-                            break;
+                        // Clear the binding
+                        ClearBinding(currentBindingAction);
                     }
-                    waitingForKey = null;
-                    waitingForKeyBinding = "";
+                    else if (e.keyCode != KeyCode.Escape) // Ignore Escape key
+                    {
+                        AssignKeyBinding(currentBindingAction, e.keyCode);
+                    }
+                    else
+                    {
+                        // Cancel binding if Escape is pressed
+                        waitingForKeyPress = false;
+                        currentBindingAction = "";
+                        ShowNotification("Key binding canceled");
+                    }
+                }
+
+                // Check for controller button input
+                for (int i = 0; i < 20; i++)
+                {
+                    if (Input.GetKeyDown(KeyCode.JoystickButton0 + i))
+                    {
+                        AssignKeyBinding(currentBindingAction, KeyCode.JoystickButton0 + i);
+                        break;
+                    }
                 }
             }
             else
             {
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Menu Key: {menuKey.Value}"))
+                // Draw action headers with better spacing
+                float actionWidth = 120;
+                float bindingWidth = 45;  // Reduced button width
+                float spacing = 10;
+
+                // Header row
+                Rect headerRect = layout.GetElementRect(ELEMENT_HEIGHT);
+                GUI.Label(new Rect(headerRect.x, headerRect.y, actionWidth, ELEMENT_HEIGHT), "Action");
+                GUI.Label(new Rect(headerRect.x + actionWidth + spacing, headerRect.y, bindingWidth, ELEMENT_HEIGHT), "Key 1");
+                GUI.Label(new Rect(headerRect.x + actionWidth + bindingWidth + spacing * 2, headerRect.y, bindingWidth, ELEMENT_HEIGHT), "Key 2");
+
+                // Separator line
+                layout.AddSpace(5);
+                GUI.Box(new Rect(layout.MenuX + MARGIN, layout.CurrentY, layout.Width - (MARGIN * 2), 2), "");
+                layout.AddSpace(10);
+
+                // Draw each action with its bindings
+                foreach (var actionPair in actionBindings)
                 {
-                    waitingForKey = menuKey.Value;
-                    waitingForKeyBinding = "Menu";
+                    Rect rowRect = layout.GetElementRect(ELEMENT_HEIGHT);
+
+                    // Format the action name for display
+                    string displayName = string.Join(" ", System.Text.RegularExpressions.Regex.Split(actionPair.Key, @"(?<!^)(?=[A-Z])"));
+
+                    // Draw action name
+                    GUI.Label(new Rect(rowRect.x, rowRect.y, actionWidth, ELEMENT_HEIGHT), displayName);
+
+                    // Draw primary binding button
+                    string primaryText = actionPair.Value[0].Value == KeyCode.None ? "---" : actionPair.Value[0].Value.ToString();
+                    if (GUI.Button(new Rect(rowRect.x + actionWidth + spacing, rowRect.y, bindingWidth, ELEMENT_HEIGHT), primaryText))
+                    {
+                        waitingForKeyPress = true;
+                        currentBindingAction = actionPair.Key + "_Primary";
+                    }
+
+                    // Draw secondary binding button
+                    string secondaryText = actionPair.Value.Count > 1 && actionPair.Value[1].Value != KeyCode.None ?
+                        actionPair.Value[1].Value.ToString() : "---";
+                    if (GUI.Button(new Rect(rowRect.x + actionWidth + bindingWidth + spacing * 2, rowRect.y, bindingWidth, ELEMENT_HEIGHT), secondaryText))
+                    {
+                        waitingForKeyPress = true;
+                        currentBindingAction = actionPair.Key + "_Secondary";
+                    }
+
+                    layout.AddSpace(5);
                 }
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Noclip Key: {noclipKey.Value}"))
-                {
-                    waitingForKey = noclipKey.Value;
-                    waitingForKeyBinding = "Noclip";
-                }
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Teleport Key: {teleportKey.Value}"))
-                {
-                    waitingForKey = teleportKey.Value;
-                    waitingForKeyBinding = "Teleport";
-                }
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"TimeScale Key: {timeScaleKey.Value}"))
-                {
-                    waitingForKey = timeScaleKey.Value;
-                    waitingForKeyBinding = "TimeScale";
-                }
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Temp Checkpoint Key: {tempCheckpointKey.Value}"))
-                {
-                    waitingForKey = tempCheckpointKey.Value;
-                    waitingForKeyBinding = "TempCheckpoint";
-                }
-                if (GUI.Button(layout.GetElementRect(BUTTON_HEIGHT), $"Physics Mod Key: {physicsModKey.Value}"))
-                {
-                    waitingForKey = physicsModKey.Value;
-                    waitingForKeyBinding = "PhysicsMod";
-                }
+
+                // Instructions at the bottom
+                layout.AddSpace(10);
+                GUI.Box(layout.GetRect(2), "");
+                layout.AddSpace(5);
+                GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT), "Press Escape to cancel binding");
             }
+        }
+
+        private void AssignKeyBinding(string bindingAction, KeyCode keyCode)
+        {
+            string[] parts = bindingAction.Split('_');
+            string action = parts[0];
+            string slot = parts[1]; // Primary or Secondary
+
+            int index = slot == "Primary" ? 0 : 1;
+
+            if (actionBindings.ContainsKey(action) && index < actionBindings[action].Count)
+            {
+                actionBindings[action][index].Value = keyCode;
+                ShowNotification($"{action} {slot} binding set to {keyCode}");
+            }
+
+            waitingForKeyPress = false;
+            currentBindingAction = "";
+        }
+
+        private void ClearBinding(string bindingAction)
+        {
+            string[] parts = bindingAction.Split('_');
+            string action = parts[0];
+            string slot = parts[1]; // Primary or Secondary
+
+            int index = slot == "Primary" ? 0 : 1;
+
+            if (actionBindings.ContainsKey(action) && index < actionBindings[action].Count)
+            {
+                actionBindings[action][index].Value = KeyCode.None;
+                ShowNotification($"{action} {slot} binding cleared");
+            }
+
+            waitingForKeyPress = false;
+            currentBindingAction = "";
         }
 
         void Update()
@@ -446,62 +544,74 @@ namespace SpeedrunPracticeMod
                 }
             }
 
-            // Keybinds for toggling physics mod
-            if (Input.GetKeyDown(physicsModKey.Value))
+            // Check for any key press for all actions
+            foreach (var actionPair in actionBindings)
             {
-                physicsModEnabled = !physicsModEnabled;
-                if (!physicsModEnabled)
+                foreach (var binding in actionPair.Value)
                 {
-                    RestoreOriginalValues();
+                    if (binding.Value != KeyCode.None && Input.GetKeyDown(binding.Value))
+                    {
+                        // Handle the action
+                        HandleAction(actionPair.Key);
+                        break;
+                    }
                 }
-                ShowNotification($"Physics Mod: {(physicsModEnabled ? "Enabled" : "Disabled")}");
-            }
-
-            // Add this back for teleport key functionality
-            if (Input.GetKeyDown(teleportKey.Value) && !string.IsNullOrEmpty(selectedCheckpoint))
-            {
-                if (showingPresets)
-                {
-                    TeleportToPresetCheckpoint(selectedCheckpoint);
-                }
-                else
-                {
-                    TeleportToCustomCheckpoint(selectedCheckpoint);
-                }
-            }
-
-            if (Input.GetKeyDown(menuKey.Value))
-            {
-                showMenu = !showMenu;
-                if (showMenu)
-                {
-                    Time.timeScale = isTimeScaleActive ? timeScaleValue : normalTimeScale;
-                    Cursor.visible = true;
-                    Cursor.lockState = CursorLockMode.Confined;
-                }
-                else
-                {
-                    Cursor.visible = false;
-                    Cursor.lockState = CursorLockMode.Locked;
-                }
-            }
-            if (Input.GetKeyDown(tempCheckpointKey.Value))
-            {
-                SetTemporaryCheckpoint();
-            }
-            if (Input.GetKeyDown(timeScaleKey.Value))
-            {
-                ToggleTimeScale();
-            }
-
-            if (Input.GetKeyDown(noclipKey.Value))
-            {
-                ToggleNoclip();
             }
 
             if (isNoclipActive)
             {
                 UpdateNoclip();
+            }
+        }
+
+        private void HandleAction(string action)
+        {
+            switch (action)
+            {
+                case "Menu":
+                    showMenu = !showMenu;
+                    if (showMenu)
+                    {
+                        Time.timeScale = isTimeScaleActive ? timeScaleValue : normalTimeScale;
+                        Cursor.visible = true;
+                        Cursor.lockState = CursorLockMode.Confined;
+                    }
+                    else
+                    {
+                        Cursor.visible = false;
+                        Cursor.lockState = CursorLockMode.Locked;
+                    }
+                    break;
+                case "Noclip":
+                    ToggleNoclip();
+                    break;
+                case "Teleport":
+                    if (!string.IsNullOrEmpty(selectedCheckpoint))
+                    {
+                        if (showingPresets)
+                        {
+                            TeleportToPresetCheckpoint(selectedCheckpoint);
+                        }
+                        else
+                        {
+                            TeleportToCustomCheckpoint(selectedCheckpoint);
+                        }
+                    }
+                    break;
+                case "TimeScale":
+                    ToggleTimeScale();
+                    break;
+                case "TempCheckpoint":
+                    SetTemporaryCheckpoint();
+                    break;
+                case "PhysicsMod":
+                    physicsModEnabled = !physicsModEnabled;
+                    if (!physicsModEnabled)
+                    {
+                        RestoreOriginalValues();
+                    }
+                    ShowNotification($"Physics Mod: {(physicsModEnabled ? "Enabled" : "Disabled")}");
+                    break;
             }
         }
 
@@ -697,35 +807,27 @@ namespace SpeedrunPracticeMod
             }
 
             // Process key bindings if waiting for a key
-            if (waitingForKey.HasValue)
+            if (waitingForKeyPress)
             {
                 Event e = Event.current;
                 if (e.isKey && e.type == EventType.KeyDown)
                 {
-                    switch (waitingForKeyBinding)
+                    if (e.keyCode == KeyCode.Backspace)
                     {
-                        case "Menu":
-                            menuKey.Value = e.keyCode;
-                            break;
-                        case "Noclip":
-                            noclipKey.Value = e.keyCode;
-                            break;
-                        case "Teleport":
-                            teleportKey.Value = e.keyCode;
-                            break;
-                        case "TimeScale":
-                            timeScaleKey.Value = e.keyCode;
-                            break;
-                        case "TempCheckpoint":
-                            tempCheckpointKey.Value = e.keyCode;
-                            break;
-                        case "PhysicsMod":
-                            physicsModKey.Value = e.keyCode;
-                            break;
+                        // Clear the binding
+                        ClearBinding(currentBindingAction);
                     }
-                    waitingForKey = null;
-                    waitingForKeyBinding = "";
-                    ShowNotification($"Key bound successfully!");
+                    else if (e.keyCode != KeyCode.Escape) // Ignore Escape key
+                    {
+                        AssignKeyBinding(currentBindingAction, e.keyCode);
+                    }
+                    else
+                    {
+                        // Cancel binding if Escape is pressed
+                        waitingForKeyPress = false;
+                        currentBindingAction = "";
+                        ShowNotification("Key binding canceled");
+                    }
                 }
             }
         }
@@ -943,11 +1045,22 @@ namespace SpeedrunPracticeMod
                 {
                     foreach (var checkpoint in customCheckpoints)
                     {
+                        // Use InvariantCulture to always save with period as decimal separator
                         writer.WriteLine($"{checkpoint.Key}," +
-                                       $"{checkpoint.Value.Position.x},{checkpoint.Value.Position.y},{checkpoint.Value.Position.z}," +
-                                       $"{checkpoint.Value.Velocity.x},{checkpoint.Value.Velocity.y},{checkpoint.Value.Velocity.z}," +
-                                       $"{checkpoint.Value.PlayerRotation.x},{checkpoint.Value.PlayerRotation.y},{checkpoint.Value.PlayerRotation.z},{checkpoint.Value.PlayerRotation.w}," +
-                                       $"{checkpoint.Value.CameraRotation.x},{checkpoint.Value.CameraRotation.y},{checkpoint.Value.CameraRotation.z},{checkpoint.Value.CameraRotation.w}");
+                                       $"{checkpoint.Value.Position.x.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.Position.y.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.Position.z.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.Velocity.x.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.Velocity.y.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.Velocity.z.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.PlayerRotation.x.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.PlayerRotation.y.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.PlayerRotation.z.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.PlayerRotation.w.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.CameraRotation.x.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.CameraRotation.y.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.CameraRotation.z.ToString(System.Globalization.CultureInfo.InvariantCulture)}," +
+                                       $"{checkpoint.Value.CameraRotation.w.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
                     }
                 }
             }
@@ -968,33 +1081,43 @@ namespace SpeedrunPracticeMod
                     string[] lines = File.ReadAllLines(saveFilePath);
                     foreach (string line in lines)
                     {
-                        string[] parts = line.Split(',');
-                        if (parts.Length == 15)
+                        try
                         {
-                            string name = parts[0];
-                            Vector3 position = new Vector3(
-                                float.Parse(parts[1]),
-                                float.Parse(parts[2]),
-                                float.Parse(parts[3])
-                            );
-                            Vector3 velocity = new Vector3(
-                                float.Parse(parts[4]),
-                                float.Parse(parts[5]),
-                                float.Parse(parts[6])
-                            );
-                            Quaternion playerRotation = new Quaternion(
-                                float.Parse(parts[7]),
-                                float.Parse(parts[8]),
-                                float.Parse(parts[9]),
-                                float.Parse(parts[10])
-                            );
-                            Quaternion cameraRotation = new Quaternion(
-                                float.Parse(parts[11]),
-                                float.Parse(parts[12]),
-                                float.Parse(parts[13]),
-                                float.Parse(parts[14])
-                            );
-                            customCheckpoints[name] = new CheckpointData(position, velocity, playerRotation, cameraRotation);
+                            // Split by comma first to get the checkpoint name and values
+                            string[] parts = line.Split(',');
+                            if (parts.Length == 15)
+                            {
+                                string name = parts[0];
+                                // Parse numbers using InvariantCulture to ensure consistent decimal handling
+                                Vector3 position = new Vector3(
+                                    float.Parse(parts[1].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[2].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[3].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture)
+                                );
+                                Vector3 velocity = new Vector3(
+                                    float.Parse(parts[4].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[5].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[6].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture)
+                                );
+                                Quaternion playerRotation = new Quaternion(
+                                    float.Parse(parts[7].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[8].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[9].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[10].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture)
+                                );
+                                Quaternion cameraRotation = new Quaternion(
+                                    float.Parse(parts[11].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[12].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[13].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture),
+                                    float.Parse(parts[14].Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture)
+                                );
+                                customCheckpoints[name] = new CheckpointData(position, velocity, playerRotation, cameraRotation);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning($"Failed to parse checkpoint line: {line}. Error: {ex.Message}");
+                            continue; // Skip this line and continue with the next one
                         }
                     }
                 }

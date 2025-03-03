@@ -13,7 +13,7 @@ using Isto.GTW.Player.States;
 
 namespace SpeedrunPracticeMod
 {
-    [BepInPlugin("com.Palmblom.SpeedrunPracticeMod", "SpeedrunPracticeMod", "1.0.0")]
+    [BepInPlugin("com.Palmblom.SpeedrunPracticeMod", "SpeedrunPracticeMod", "1.5.0")]
     public class PracticeMod : BaseUnityPlugin
     {
         // GUI Layout Constants

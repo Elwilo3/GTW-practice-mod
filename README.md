@@ -6,7 +6,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
    - Note: Features shown in the video are outdated as the mod has been updated many with new and improved features
 
 1. **Download and Install BepInEx:**
-   - Download [BepInEx_x64_5.4.22.0.zip](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/BepInEx_win_x64_5.4.23.2.zip)
+   - Download [BepInEx_x64_5.4.23.2.zip](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/BepInEx_win_x64_5.4.23.2.zip)
    - Extract ALL contents into your Get To Work game folder (click "Browse local files" on your steam game)
    - Run the game once and close it
 

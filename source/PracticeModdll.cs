@@ -167,9 +167,96 @@ namespace SpeedrunPracticeMod
         // Mod master switches
         private bool physicsModEnabled = false;
 
+        // Add these variables with the other toggle flags
+        private bool disableRagdollEnabled = false;
+        private bool originalRagdollState = false;
+
+        // Add these variables at the top of the class with other physics variables
+        private float customGravity = 9.8f;
+        private float customBounciness = 0.5f;
+        private float customBallRadius = 0.25f;
+        private bool gravityModEnabled = false;
+        private bool bouncinessModEnabled = false;
+        private bool ballRadiusModEnabled = false;
+
+        // Add these variables at the top of the class with other physics variables
+        private float customMaxGravityAngle = 25f;
+        private float customMaxTorque = 60f;
+        private float customGrabAbilityDrag = 5f;
+        private float customGroundedBounciness = 0.3f;
+        private float customAirBounciness = 0.5f;
+        private bool maxGravityAngleModEnabled = false;
+        private bool maxTorqueModEnabled = false;
+        private bool grabAbilityDragModEnabled = false;
+        private bool airBouncinessModEnabled = false;
+
         public static PracticeMod Instance;
 
         private Harmony harmony;
+
+        // Add these field declarations
+        private Texture2D backgroundTexture;
+        private Texture2D buttonTexture;
+        private Texture2D buttonHoverTexture;
+        private Texture2D textFieldTexture;
+        private Texture2D headerTexture;
+        private Texture2D selectedTexture;
+        private Texture2D alternateRowTexture;
+        private Texture2D toggleOnTexture;
+        private Texture2D toggleOffTexture;
+        private Texture2D separatorTexture;
+        private Texture2D textFieldBorderTexture;
+        private Texture2D deleteButtonTexture;
+        private Texture2D deleteButtonHoverTexture;
+        private List<UIElement> uiElements = new List<UIElement>();
+        private float navigationCooldown = 0f;
+        private const float NAVIGATION_COOLDOWN_TIME = 0.2f;
+        private Dictionary<string, bool> hoveredElements = new Dictionary<string, bool>();
+
+        // Add UI element class
+        public enum UIElementType
+        {
+            Button,
+            Toggle,
+            Slider,
+            TextField,
+            Label
+        }
+
+        public class UIElement
+        {
+            public UIElementType type;
+            public Rect rect;
+            public System.Action action;
+            public System.Action<bool> toggleAction;
+            public System.Action<float> sliderAction;
+            public string text;
+            public bool isToggled;
+            public float sliderValue;
+            public float sliderMin;
+            public float sliderMax;
+
+            public UIElement(UIElementType type, Rect rect, string text = "")
+            {
+                this.type = type;
+                this.rect = rect;
+                this.text = text;
+            }
+        }
+
+        // Add this near the top with other private variables
+        private bool uiOnRightSide = true; // Default to right side
+
+        private bool selectionActive = false;
+
+        // Add original values for all physics properties at class level
+        private float originalGravity;
+        private float originalMaxGravityAngle;
+        private float originalMaxTorque;
+        private float originalGrabAbilityDrag;
+        private float originalBallRadius;
+        private float originalGroundedBounciness;
+        private float originalAirBounciness;
 
         private void Awake()
         {
@@ -247,185 +334,754 @@ namespace SpeedrunPracticeMod
 
         private void DrawMovementMenu(MenuLayout layout)
         {
-            // Noclip Settings
-            GUI.Box(layout.GetRect(30), "NoClip settings");
+            // Create styles with textures
+            GUIStyle headerStyle = new GUIStyle(GUI.skin.box);
+            headerStyle.normal.background = headerTexture;
+            headerStyle.fontSize = 14;
+            headerStyle.fontStyle = FontStyle.Bold;
+            headerStyle.normal.textColor = Color.white;
+            headerStyle.alignment = TextAnchor.MiddleLeft;
+            headerStyle.padding = new RectOffset(10, 10, 5, 5);
 
-            moveSpeed = DrawLabeledSlider(layout, "Speed", moveSpeed, 1f, 50f);
-            fastMultiplier = DrawLabeledSlider(layout, "Fast Multiplier", fastMultiplier, 1f, 10f);
-            isNoclipActive = DrawToggleButton(layout, "Enable Noclip", "Disable Noclip", isNoclipActive);
+            GUIStyle labelStyle = new GUIStyle(GUI.skin.label);
+            labelStyle.fontSize = 12;
+            labelStyle.normal.textColor = Color.white;
 
-            layout.AddSpace(PADDING);
+            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button);
+            buttonStyle.normal.background = buttonTexture;
+            buttonStyle.hover.background = buttonHoverTexture;
+            buttonStyle.normal.textColor = Color.white;
+            buttonStyle.fontSize = 12;
+            buttonStyle.alignment = TextAnchor.MiddleCenter;
 
-            // Time Control Settings
-            GUI.Box(layout.GetRect(30), "Time Control Settings");
+            GUIStyle textFieldStyle = new GUIStyle(GUI.skin.textField);
+            textFieldStyle.normal.background = textFieldTexture;
+            textFieldStyle.normal.textColor = Color.white;
+            textFieldStyle.alignment = TextAnchor.MiddleLeft;
+            textFieldStyle.padding = new RectOffset(5, 5, 3, 3);
 
-            timeScaleValue = DrawLabeledSlider(layout, "Time Scale", timeScaleValue, 0.01f, 20f, "F2");
-            isTimeScaleActive = DrawToggleButton(layout, "Apply Time Scale", "Reset Time Scale", isTimeScaleActive);
+            GUIStyle toggleOnStyle = new GUIStyle(GUI.skin.button);
+            toggleOnStyle.normal.background = toggleOnTexture;
+            toggleOnStyle.hover.background = toggleOnTexture;
+            toggleOnStyle.normal.textColor = Color.white;
+            toggleOnStyle.fontSize = 12;
+            toggleOnStyle.alignment = TextAnchor.MiddleCenter;
 
-            layout.AddSpace(PADDING);
+            GUIStyle toggleOffStyle = new GUIStyle(GUI.skin.button);
+            toggleOffStyle.normal.background = toggleOffTexture;
+            toggleOffStyle.hover.background = toggleOffTexture;
+            toggleOffStyle.normal.textColor = Color.white;
+            toggleOffStyle.fontSize = 12;
+            toggleOffStyle.alignment = TextAnchor.MiddleCenter;
 
-            GUI.Box(layout.GetRect(30), "Physics Settings");
+            // No Clip Settings
+            GUI.Box(layout.GetRect(30), "NoClip Settings", headerStyle);
+            GUI.Box(layout.GetElementRect(1), "", new GUIStyle { normal = { background = separatorTexture } });
+            layout.AddSpace(5);
 
-            // Physics Mod Master Switch
-            physicsModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), physicsModEnabled, "Enable Physics Mods");
-
-            // Physics Mod Keybind Info
-            GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT), $"Enable Physics Mods Key: {physicsModKey.Value}");
-
-
-            layout.AddSpace(PADDING);
-
-            // Individual toggles and settings
-
-            // Friction Mod
-            frictionModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), frictionModEnabled, "Modify Friction");
-            if (frictionModEnabled)
+            // NoClip Toggle and Speed
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "NoClip:", labelStyle);
+            Rect noclipToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+            if (GUI.Button(noclipToggleRect, "", isNoclipActive ? toggleOnStyle : toggleOffStyle))
             {
-                customFriction = DrawLabeledSlider(layout, "Friction", customFriction, 0f, 250f, "F2");
-                if (physicsModEnabled)
-                    ApplyCustomFriction();
+                ToggleNoclip();
+            }
+            uiElements.Add(new UIElement(UIElementType.Toggle, noclipToggleRect, "NoClip")
+            {
+                action = () => ToggleNoclip(),
+                isToggled = isNoclipActive
+            });
+            layout.CurrentY += 30;
+
+            // Keep NoClip after teleport
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "NoClip after teleport:", labelStyle);
+            Rect keepNoclipToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+            if (GUI.Button(keepNoclipToggleRect, "", keepNoclipAfterTeleport ? toggleOnStyle : toggleOffStyle))
+            {
+                keepNoclipAfterTeleport = !keepNoclipAfterTeleport;
+            }
+            uiElements.Add(new UIElement(UIElementType.Toggle, keepNoclipToggleRect, "Keep NoClip")
+            {
+                action = () => keepNoclipAfterTeleport = !keepNoclipAfterTeleport,
+                isToggled = keepNoclipAfterTeleport
+            });
+            layout.CurrentY += 30;
+
+            // NoClip Normal Speed
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Normal Speed:", labelStyle);
+            layout.CurrentY += 25;
+            Rect normalSpeedRect = layout.GetElementRect(24);
+            moveSpeed = GUI.HorizontalSlider(normalSpeedRect, moveSpeed, 1f, 30f);
+            GUI.Label(new Rect(normalSpeedRect.x + normalSpeedRect.width - 40, normalSpeedRect.y, 40, 24), moveSpeed.ToString("F1"), labelStyle);
+
+            uiElements.Add(new UIElement(UIElementType.Slider, normalSpeedRect)
+            {
+                sliderValue = moveSpeed,
+                sliderMin = 1f,
+                sliderMax = 30f,
+                sliderAction = (value) => moveSpeed = value
+            });
+            layout.AddSpace(5);
+
+            // Fast Speed Multiplier
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Fast Speed Multiplier:", labelStyle);
+            layout.CurrentY += 25;
+            Rect fastMultiplierRect = layout.GetElementRect(24);
+            fastMultiplier = GUI.HorizontalSlider(fastMultiplierRect, fastMultiplier, 1f, 5f);
+            GUI.Label(new Rect(fastMultiplierRect.x + fastMultiplierRect.width - 40, fastMultiplierRect.y, 40, 24), fastMultiplier.ToString("F1"), labelStyle);
+
+            uiElements.Add(new UIElement(UIElementType.Slider, fastMultiplierRect)
+            {
+                sliderValue = fastMultiplier,
+                sliderMin = 1f,
+                sliderMax = 5f,
+                sliderAction = (value) => fastMultiplier = value
+            });
+            layout.AddSpace(10);
+
+            // Time Scale
+            GUI.Box(layout.GetRect(30), "Time Scale", headerStyle);
+            GUI.Box(layout.GetElementRect(1), "", new GUIStyle { normal = { background = separatorTexture } });
+            layout.AddSpace(5);
+
+            // Time Scale Toggle
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Slow Motion:", labelStyle);
+            Rect timeScaleToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+            if (GUI.Button(timeScaleToggleRect, "", isTimeScaleActive ? toggleOnStyle : toggleOffStyle))
+            {
+                ToggleTimeScale();
+            }
+            uiElements.Add(new UIElement(UIElementType.Toggle, timeScaleToggleRect, "Slow Motion")
+            {
+                action = () => ToggleTimeScale(),
+                isToggled = isTimeScaleActive
+            });
+            layout.CurrentY += 30;
+
+            // Time Scale Value
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Time Scale Value:", labelStyle);
+            layout.CurrentY += 25;
+            Rect timeScaleRect = layout.GetElementRect(24);
+            timeScaleValue = GUI.HorizontalSlider(timeScaleRect, timeScaleValue, 0.1f, 1f);
+            GUI.Label(new Rect(timeScaleRect.x + timeScaleRect.width - 40, timeScaleRect.y, 40, 24), timeScaleValue.ToString("F2"), labelStyle);
+
+            uiElements.Add(new UIElement(UIElementType.Slider, timeScaleRect)
+            {
+                sliderValue = timeScaleValue,
+                sliderMin = 0.1f,
+                sliderMax = 1f,
+                sliderAction = (value) => timeScaleValue = value
+            });
+            layout.AddSpace(10);
+
+            // Ragdoll Control
+            GUI.Box(layout.GetRect(30), "Ragdoll Control", headerStyle);
+            GUI.Box(layout.GetElementRect(1), "", new GUIStyle { normal = { background = separatorTexture } });
+            layout.AddSpace(5);
+
+            // Disable Ragdoll
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Disable Ragdoll:", labelStyle);
+            Rect disableRagdollToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+            if (GUI.Button(disableRagdollToggleRect, "", disableRagdollEnabled ? toggleOnStyle : toggleOffStyle))
+            {
+                disableRagdollEnabled = !disableRagdollEnabled;
+                if (disableRagdollEnabled && playerController != null && playerController.IsRagdollState)
+                {
+                    ForceExitRagdoll();
+                }
+            }
+            uiElements.Add(new UIElement(UIElementType.Toggle, disableRagdollToggleRect, "Disable Ragdoll")
+            {
+                action = () => {
+                    disableRagdollEnabled = !disableRagdollEnabled;
+                    if (disableRagdollEnabled && playerController != null && playerController.IsRagdollState)
+                    {
+                        ForceExitRagdoll();
+                    }
+                },
+                isToggled = disableRagdollEnabled
+            });
+            layout.AddSpace(25); // Increased space here
+
+            // Physics Mod
+            GUI.Box(layout.GetRect(30), "Physics Modifications", headerStyle);
+            GUI.Box(layout.GetElementRect(1), "", new GUIStyle { normal = { background = separatorTexture } });
+            layout.AddSpace(5);
+
+            // Global Physics Toggle
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Physics Modifications:", labelStyle);
+            Rect physicsModToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+            if (GUI.Button(physicsModToggleRect, "", physicsModEnabled ? toggleOnStyle : toggleOffStyle))
+            {
+                physicsModEnabled = !physicsModEnabled;
+            }
+            uiElements.Add(new UIElement(UIElementType.Toggle, physicsModToggleRect, "Physics Modifications")
+            {
+                action = () => physicsModEnabled = !physicsModEnabled,
+                isToggled = physicsModEnabled
+            });
+            layout.CurrentY += 30;
+
+            if (physicsModEnabled)
+            {
+                // ===== PHYSICS PROPERTIES =====
+
+                // Gravity Modification
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Gravity:", labelStyle);
+
+                Rect gravityToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(gravityToggleRect, "", gravityModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    gravityModEnabled = !gravityModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, gravityToggleRect, "Custom Gravity")
+                {
+                    action = () => gravityModEnabled = !gravityModEnabled,
+                    isToggled = gravityModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (gravityModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect gravitySliderRect = layout.GetElementRect(24);
+
+                    customGravity = GUI.HorizontalSlider(gravitySliderRect, customGravity, 0f, 20f);
+                    GUI.Label(new Rect(gravitySliderRect.x + gravitySliderRect.width - 40, gravitySliderRect.y, 40, 24),
+                             customGravity.ToString("F1"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, gravitySliderRect)
+                    {
+                        sliderValue = customGravity,
+                        sliderMin = 0f,
+                        sliderMax = 20f,
+                        sliderAction = (value) => customGravity = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Max Gravity Angle
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Max Gravity Angle:", labelStyle);
+
+                Rect maxGravityAngleToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(maxGravityAngleToggleRect, "", maxGravityAngleModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    maxGravityAngleModEnabled = !maxGravityAngleModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, maxGravityAngleToggleRect, "Custom Max Gravity Angle")
+                {
+                    action = () => maxGravityAngleModEnabled = !maxGravityAngleModEnabled,
+                    isToggled = maxGravityAngleModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (maxGravityAngleModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect maxGravityAngleSliderRect = layout.GetElementRect(24);
+
+                    customMaxGravityAngle = GUI.HorizontalSlider(maxGravityAngleSliderRect, customMaxGravityAngle, 0f, 90f);
+                    GUI.Label(new Rect(maxGravityAngleSliderRect.x + maxGravityAngleSliderRect.width - 40, maxGravityAngleSliderRect.y, 40, 24),
+                             customMaxGravityAngle.ToString("F1"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, maxGravityAngleSliderRect)
+                    {
+                        sliderValue = customMaxGravityAngle,
+                        sliderMin = 0f,
+                        sliderMax = 90f,
+                        sliderAction = (value) => customMaxGravityAngle = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Max Torque Modification
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Max Torque:", labelStyle);
+
+                Rect maxTorqueToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(maxTorqueToggleRect, "", maxTorqueModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    maxTorqueModEnabled = !maxTorqueModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, maxTorqueToggleRect, "Custom Max Torque")
+                {
+                    action = () => maxTorqueModEnabled = !maxTorqueModEnabled,
+                    isToggled = maxTorqueModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (maxTorqueModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect maxTorqueSliderRect = layout.GetElementRect(24);
+
+                    customMaxTorque = GUI.HorizontalSlider(maxTorqueSliderRect, customMaxTorque, 10f, 200f);
+                    GUI.Label(new Rect(maxTorqueSliderRect.x + maxTorqueSliderRect.width - 40, maxTorqueSliderRect.y, 40, 24),
+                             customMaxTorque.ToString("F1"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, maxTorqueSliderRect)
+                    {
+                        sliderValue = customMaxTorque,
+                        sliderMin = 10f,
+                        sliderMax = 200f,
+                        sliderAction = (value) => customMaxTorque = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Friction Modification
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Friction:", labelStyle);
+
+                Rect frictionToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(frictionToggleRect, "", frictionModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    frictionModEnabled = !frictionModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, frictionToggleRect, "Custom Friction")
+                {
+                    action = () => frictionModEnabled = !frictionModEnabled,
+                    isToggled = frictionModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (frictionModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect frictionSliderRect = layout.GetElementRect(24);
+
+                    customFriction = GUI.HorizontalSlider(frictionSliderRect, customFriction, 0f, 2f);
+                    GUI.Label(new Rect(frictionSliderRect.x + frictionSliderRect.width - 40, frictionSliderRect.y, 40, 24),
+                             customFriction.ToString("F2"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, frictionSliderRect)
+                    {
+                        sliderValue = customFriction,
+                        sliderMin = 0f,
+                        sliderMax = 2f,
+                        sliderAction = (value) => customFriction = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Drag Modification
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Drag:", labelStyle);
+
+                Rect dragToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(dragToggleRect, "", dragModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    dragModEnabled = !dragModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, dragToggleRect, "Custom Drag")
+                {
+                    action = () => dragModEnabled = !dragModEnabled,
+                    isToggled = dragModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (dragModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect dragSliderRect = layout.GetElementRect(24);
+
+                    customDrag = GUI.HorizontalSlider(dragSliderRect, customDrag, 0f, 0.1f);
+                    GUI.Label(new Rect(dragSliderRect.x + dragSliderRect.width - 40, dragSliderRect.y, 40, 24),
+                             customDrag.ToString("F3"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, dragSliderRect)
+                    {
+                        sliderValue = customDrag,
+                        sliderMin = 0f,
+                        sliderMax = 0.1f,
+                        sliderAction = (value) => customDrag = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Grab Ability Drag
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Grab Ability Drag:", labelStyle);
+
+                Rect grabDragToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(grabDragToggleRect, "", grabAbilityDragModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    grabAbilityDragModEnabled = !grabAbilityDragModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, grabDragToggleRect, "Custom Grab Ability Drag")
+                {
+                    action = () => grabAbilityDragModEnabled = !grabAbilityDragModEnabled,
+                    isToggled = grabAbilityDragModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (grabAbilityDragModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect grabDragSliderRect = layout.GetElementRect(24);
+
+                    customGrabAbilityDrag = GUI.HorizontalSlider(grabDragSliderRect, customGrabAbilityDrag, 0f, 20f);
+                    GUI.Label(new Rect(grabDragSliderRect.x + grabDragSliderRect.width - 40, grabDragSliderRect.y, 40, 24),
+                             customGrabAbilityDrag.ToString("F1"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, grabDragSliderRect)
+                    {
+                        sliderValue = customGrabAbilityDrag,
+                        sliderMin = 0f,
+                        sliderMax = 20f,
+                        sliderAction = (value) => customGrabAbilityDrag = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Bounciness (combined ground and air)
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Bounciness:", labelStyle);
+
+                Rect bouncinessToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(bouncinessToggleRect, "", bouncinessModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    bouncinessModEnabled = !bouncinessModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, bouncinessToggleRect, "Custom Bounciness")
+                {
+                    action = () => bouncinessModEnabled = !bouncinessModEnabled,
+                    isToggled = bouncinessModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (bouncinessModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect bouncinessSliderRect = layout.GetElementRect(24);
+
+                    customBounciness = GUI.HorizontalSlider(bouncinessSliderRect, customBounciness, 0f, 1f);
+                    GUI.Label(new Rect(bouncinessSliderRect.x + bouncinessSliderRect.width - 40, bouncinessSliderRect.y, 40, 24),
+                             customBounciness.ToString("F2"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, bouncinessSliderRect)
+                    {
+                        sliderValue = customBounciness,
+                        sliderMin = 0f,
+                        sliderMax = 1f,
+                        sliderAction = (value) => customBounciness = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Air-specific Bounciness
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Air Bounciness:", labelStyle);
+
+                Rect airBouncinessToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(airBouncinessToggleRect, "", airBouncinessModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    airBouncinessModEnabled = !airBouncinessModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, airBouncinessToggleRect, "Custom Air Bounciness")
+                {
+                    action = () => airBouncinessModEnabled = !airBouncinessModEnabled,
+                    isToggled = airBouncinessModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (airBouncinessModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect airBouncinessSliderRect = layout.GetElementRect(24);
+
+                    customAirBounciness = GUI.HorizontalSlider(airBouncinessSliderRect, customAirBounciness, 0f, 1f);
+                    GUI.Label(new Rect(airBouncinessSliderRect.x + airBouncinessSliderRect.width - 40, airBouncinessSliderRect.y, 40, 24),
+                             customAirBounciness.ToString("F2"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, airBouncinessSliderRect)
+                    {
+                        sliderValue = customAirBounciness,
+                        sliderMin = 0f,
+                        sliderMax = 1f,
+                        sliderAction = (value) => customAirBounciness = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Ball Radius Modification
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                                  layout.Width - 120, ELEMENT_HEIGHT), "Ball Radius:", labelStyle);
+
+                Rect ballRadiusToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+                if (GUI.Button(ballRadiusToggleRect, "", ballRadiusModEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    ballRadiusModEnabled = !ballRadiusModEnabled;
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Toggle, ballRadiusToggleRect, "Custom Ball Radius")
+                {
+                    action = () => ballRadiusModEnabled = !ballRadiusModEnabled,
+                    isToggled = ballRadiusModEnabled
+                });
+                layout.CurrentY += 30;
+
+                if (ballRadiusModEnabled)
+                {
+                    layout.CurrentY += 5;
+                    Rect ballRadiusSliderRect = layout.GetElementRect(24);
+
+                    customBallRadius = GUI.HorizontalSlider(ballRadiusSliderRect, customBallRadius, 0.1f, 1f);
+                    GUI.Label(new Rect(ballRadiusSliderRect.x + ballRadiusSliderRect.width - 40, ballRadiusSliderRect.y, 40, 24),
+                             customBallRadius.ToString("F2"), labelStyle);
+
+                    uiElements.Add(new UIElement(UIElementType.Slider, ballRadiusSliderRect)
+                    {
+                        sliderValue = customBallRadius,
+                        sliderMin = 0.1f,
+                        sliderMax = 1f,
+                        sliderAction = (value) => customBallRadius = value
+                    });
+                    layout.AddSpace(10);
+                }
+
+                // Ball Visualizer Toggle
+                GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY, layout.Width - 120, ELEMENT_HEIGHT), "Ball Visualizer:", labelStyle);
+                Rect ballVisualizerToggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+                if (GUI.Button(ballVisualizerToggleRect, "", ballVisualizerEnabled ? toggleOnStyle : toggleOffStyle))
+                {
+                    ballVisualizerEnabled = !ballVisualizerEnabled;
+                }
+                uiElements.Add(new UIElement(UIElementType.Toggle, ballVisualizerToggleRect, "Ball Visualizer")
+                {
+                    action = () => ballVisualizerEnabled = !ballVisualizerEnabled,
+                    isToggled = ballVisualizerEnabled
+                });
+                layout.AddSpace(5);
             }
 
-            layout.AddSpace(PADDING);
-
-            // Acceleration Mod
-            accelerationModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), accelerationModEnabled, "Modify Acceleration");
-            if (accelerationModEnabled)
-            {
-                customAcceleration = DrawLabeledSlider(layout, "Acceleration", customAcceleration, 0f, 2000f, "F1");
-            }
-
-            layout.AddSpace(PADDING);
-
-            // Drag Mod
-            dragModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), dragModEnabled, "Modify Drag");
-            if (dragModEnabled)
-            {
-                customDrag = DrawLabeledSlider(layout, "Drag", customDrag, 0f, 100f, "F2");
-            }
-
-            layout.AddSpace(PADDING);
-
-            // Constant Speed Mod
-            constantSpeedModEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), constantSpeedModEnabled, "Maintain Minimum Speed");
-            if (constantSpeedModEnabled)
-            {
-                minSpeed = DrawLabeledSlider(layout, "Min Speed", minSpeed, 0f, 500f, "F1");
-            }
-
-            layout.AddSpace(PADDING);
-
-            // Ball Visualizer
-            bool previousBallVisualizerEnabled = ballVisualizerEnabled;
-            ballVisualizerEnabled = GUI.Toggle(layout.GetElementRect(ELEMENT_HEIGHT), ballVisualizerEnabled, "Show Balls☺️");
-            if (ballVisualizerEnabled != previousBallVisualizerEnabled)
-            {
-                ShowNotification($"Ball Visualizer: {(ballVisualizerEnabled ? "Enabled" : "Disabled")}");
-            }
+            // Apply the physics changes in Update method
         }
 
         private void DrawControlsMenu(MenuLayout layout)
         {
-            GUI.Box(layout.GetRect(30), "Keybinds");
+            // Setup styles similar to FPStogglemod.cs
+            GUIStyle headerStyle = new GUIStyle(GUI.skin.box)
+            {
+                normal = { background = headerTexture, textColor = Color.white },
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(10, 10, 5, 5)
+            };
 
-            // Help text at the top
-            GUI.Box(layout.GetRect(0), "");
-            GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT * 2),
-                "Click a button to change binding\nPress Backspace to set as 'None'");
+            GUIStyle labelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                normal = { textColor = Color.white }
+            };
+
+            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = {
+                    background = buttonTexture,
+                    textColor = Color.white
+                },
+                hover = { background = buttonHoverTexture },
+                active = { background = buttonTexture },
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                padding = new RectOffset(10, 10, 5, 5)
+            };
+
+            // Add toggle styles
+            GUIStyle toggleOnStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = toggleOnTexture },
+                hover = { background = toggleOnTexture },
+                active = { background = toggleOnTexture },
+                fixedWidth = 50,
+                fixedHeight = 24,
+                margin = new RectOffset(5, 5, 5, 5)
+            };
+
+            GUIStyle toggleOffStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = toggleOffTexture },
+                hover = { background = toggleOffTexture },
+                active = { background = toggleOffTexture },
+                fixedWidth = 50,
+                fixedHeight = 24,
+                margin = new RectOffset(5, 5, 5, 5)
+            };
+
+            // Clear UI elements
+            uiElements.Clear();
+
+            // Draw the header for the controls menu
+            GUI.Box(layout.GetRect(30), "Keybinds", headerStyle);
+
+            // Draw a separator and add spacing
+            layout.AddSpace(5);
+            GUI.Box(layout.GetElementRect(2), "", new GUIStyle() { normal = { background = separatorTexture } });
             layout.AddSpace(5);
 
             if (waitingForKeyPress)
             {
-                GUI.Box(layout.GetRect(0), "");
-                GUI.Label(layout.GetElementRect(30), $"Press any key for: {currentBindingAction}\nPress Backspace to unbind this key");
+                // Draw semi-transparent overlay
+                GUI.color = new Color(0, 0, 0, 0.8f);
+                GUI.Box(new Rect(0, 0, Screen.width, Screen.height), "");
+                GUI.color = Color.white;
 
-                // Check for keyboard input
-                Event e = Event.current;
-                if (e.isKey && e.type == EventType.KeyDown)
+                // Draw popup box
+                float popupWidth = 350;
+                float popupHeight = 150;
+                Rect popupRect = new Rect(Screen.width / 2 - popupWidth / 2, Screen.height / 2 - popupHeight / 2, popupWidth, popupHeight);
+                GUI.Box(popupRect, "", new GUIStyle(GUI.skin.box) { normal = { background = backgroundTexture } });
+
+                string actionName = currentBindingAction.Split('_')[0];
+                string bindingType = currentBindingAction.Split('_')[1];
+
+                GUIStyle messageStyle = new GUIStyle(GUI.skin.label)
                 {
-                    if (e.keyCode == KeyCode.Backspace)
+                    normal = { textColor = Color.white },
+                    fontSize = 14,
+                    alignment = TextAnchor.MiddleCenter,
+                    wordWrap = true
+                };
+
+                // Main instruction
+                GUI.Label(new Rect(popupRect.x + 10, popupRect.y + 20, popupRect.width - 20, 30),
+                         $"Press any key to bind for: {actionName}", messageStyle);
+
+                // Additional instructions
+                GUI.Label(new Rect(popupRect.x + 10, popupRect.y + 50, popupRect.width - 20, 40),
+                         "Press ESC to clear the binding\nClick Cancel or press Space to keep previous binding", messageStyle);
+
+                if (GUI.Button(new Rect(popupRect.x + popupWidth / 2 - 50, popupRect.y + popupHeight - 40, 100, 30), "Cancel", buttonStyle))
+                {
+                    waitingForKeyPress = false;
+                    currentBindingAction = "";
+                }
+
+                // Handle key input
+                if (Event.current.type == EventType.KeyDown)
+                {
+                    if (Event.current.keyCode == KeyCode.Escape)
                     {
-                        // Clear the binding
                         ClearBinding(currentBindingAction);
                     }
-                    else if (e.keyCode != KeyCode.Escape) // Ignore Escape key
+                    else if (Event.current.keyCode == KeyCode.Space)
                     {
-                        AssignKeyBinding(currentBindingAction, e.keyCode);
+                        waitingForKeyPress = false;
+                        currentBindingAction = "";
                     }
                     else
                     {
-                        // Cancel binding if Escape is pressed
-                        waitingForKeyPress = false;
-                        currentBindingAction = "";
-                        ShowNotification("Key binding canceled");
+                        AssignKeyBinding(currentBindingAction, Event.current.keyCode);
                     }
-                }
-
-                // Check for controller button input
-                for (int i = 0; i < 20; i++)
-                {
-                    if (Input.GetKeyDown(KeyCode.JoystickButton0 + i))
-                    {
-                        AssignKeyBinding(currentBindingAction, KeyCode.JoystickButton0 + i);
-                        break;
-                    }
+                    Event.current.Use();
                 }
             }
             else
             {
-                // Draw action headers with better spacing
+                // Rest of the controls menu code...
+                // Draw header row for actions
                 float actionWidth = 120;
-                float bindingWidth = 45;  // Reduced button width
+                float bindingWidth = 45;
                 float spacing = 10;
-
-                // Header row
                 Rect headerRect = layout.GetElementRect(ELEMENT_HEIGHT);
-                GUI.Label(new Rect(headerRect.x, headerRect.y, actionWidth, ELEMENT_HEIGHT), "Action");
-                GUI.Label(new Rect(headerRect.x + actionWidth + spacing, headerRect.y, bindingWidth, ELEMENT_HEIGHT), "Key 1");
-                GUI.Label(new Rect(headerRect.x + actionWidth + bindingWidth + spacing * 2, headerRect.y, bindingWidth, ELEMENT_HEIGHT), "Key 2");
-
-                // Separator line
+                GUI.Label(new Rect(headerRect.x, headerRect.y, actionWidth, ELEMENT_HEIGHT), "Action", labelStyle);
+                GUI.Label(new Rect(headerRect.x + actionWidth + spacing, headerRect.y, bindingWidth, ELEMENT_HEIGHT), "Key 1", labelStyle);
+                GUI.Label(new Rect(headerRect.x + actionWidth + bindingWidth + spacing * 2, headerRect.y, bindingWidth, ELEMENT_HEIGHT), "Key 2", labelStyle);
                 layout.AddSpace(5);
-                GUI.Box(new Rect(layout.MenuX + MARGIN, layout.CurrentY, layout.Width - (MARGIN * 2), 2), "");
+                GUI.Box(new Rect(layout.MenuX + MARGIN, layout.CurrentY, layout.Width - (MARGIN * 2), 2), "", new GUIStyle() { normal = { background = separatorTexture } });
                 layout.AddSpace(10);
 
-                // Draw each action with its bindings
+                // Draw each action binding row from actionBindings
                 foreach (var actionPair in actionBindings)
                 {
                     Rect rowRect = layout.GetElementRect(ELEMENT_HEIGHT);
-
                     // Format the action name for display
                     string displayName = string.Join(" ", System.Text.RegularExpressions.Regex.Split(actionPair.Key, @"(?<!^)(?=[A-Z])"));
-
-                    // Draw action name
-                    GUI.Label(new Rect(rowRect.x, rowRect.y, actionWidth, ELEMENT_HEIGHT), displayName);
+                    GUI.Label(new Rect(rowRect.x, rowRect.y, actionWidth, ELEMENT_HEIGHT), displayName, labelStyle);
 
                     // Draw primary binding button
                     string primaryText = actionPair.Value[0].Value == KeyCode.None ? "---" : actionPair.Value[0].Value.ToString();
-                    if (GUI.Button(new Rect(rowRect.x + actionWidth + spacing, rowRect.y, bindingWidth, ELEMENT_HEIGHT), primaryText))
+                    Rect primaryRect = new Rect(rowRect.x + actionWidth + spacing, rowRect.y, bindingWidth, ELEMENT_HEIGHT);
+                    if (GUI.Button(primaryRect, primaryText, buttonStyle))
                     {
                         waitingForKeyPress = true;
                         currentBindingAction = actionPair.Key + "_Primary";
                     }
+                    uiElements.Add(new UIElement(UIElementType.Button, primaryRect, actionPair.Key + "_Primary")
+                    {
+                        action = () => { waitingForKeyPress = true; currentBindingAction = actionPair.Key + "_Primary"; }
+                    });
 
                     // Draw secondary binding button
-                    string secondaryText = actionPair.Value.Count > 1 && actionPair.Value[1].Value != KeyCode.None ?
-                        actionPair.Value[1].Value.ToString() : "---";
-                    if (GUI.Button(new Rect(rowRect.x + actionWidth + bindingWidth + spacing * 2, rowRect.y, bindingWidth, ELEMENT_HEIGHT), secondaryText))
+                    string secondaryText = (actionPair.Value.Count > 1 && actionPair.Value[1].Value != KeyCode.None) ? actionPair.Value[1].Value.ToString() : "---";
+                    Rect secondaryRect = new Rect(rowRect.x + actionWidth + bindingWidth + spacing * 2, rowRect.y, bindingWidth, ELEMENT_HEIGHT);
+                    if (GUI.Button(secondaryRect, secondaryText, buttonStyle))
                     {
                         waitingForKeyPress = true;
                         currentBindingAction = actionPair.Key + "_Secondary";
                     }
-
+                    uiElements.Add(new UIElement(UIElementType.Button, secondaryRect, actionPair.Key + "_Secondary")
+                    {
+                        action = () => { waitingForKeyPress = true; currentBindingAction = actionPair.Key + "_Secondary"; }
+                    });
                     layout.AddSpace(5);
                 }
 
-                // Instructions at the bottom
                 layout.AddSpace(10);
-                GUI.Box(layout.GetRect(2), "");
+                GUI.Box(layout.GetElementRect(2), "", new GUIStyle() { normal = { background = separatorTexture } });
                 layout.AddSpace(5);
-                GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT), "Press Escape to cancel binding");
+                GUI.Label(layout.GetElementRect(ELEMENT_HEIGHT), "Press Escape to cancel binding", labelStyle);
             }
+
+            // Add UI Position toggle after the keybinds section
+            GUI.Box(layout.GetRect(30), "UI Settings", headerStyle);
+            GUI.Box(layout.GetElementRect(1), "", new GUIStyle() { normal = { background = separatorTexture } });
+            layout.AddSpace(5);
+
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                              layout.Width - 120, ELEMENT_HEIGHT), "UI Position:", labelStyle);
+
+            Rect uiPositionRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+            if (GUI.Button(uiPositionRect, "", uiOnRightSide ? toggleOnStyle : toggleOffStyle))
+            {
+                uiOnRightSide = !uiOnRightSide;
+            }
+
+            uiElements.Add(new UIElement(UIElementType.Toggle, uiPositionRect, "UI Position")
+            {
+                action = () => uiOnRightSide = !uiOnRightSide,
+                isToggled = uiOnRightSide
+            });
+            layout.CurrentY += 30;
+
+            // Add help text
+            GUIStyle helpStyle = new GUIStyle(labelStyle)
+            {
+                normal = { textColor = new Color(0.7f, 0.7f, 0.7f) }
+            };
+            GUI.Label(layout.GetElementRect(20), "Toggle between right and left side of screen", helpStyle);
         }
 
         private void AssignKeyBinding(string bindingAction, KeyCode keyCode)
@@ -492,6 +1148,26 @@ namespace SpeedrunPracticeMod
                 }
             }
 
+            // Add this after getting playerController but before the physics mod adjustments
+            if (playerController != null)
+            {
+                // Check for and prevent ragdoll if disabled
+                if (physicsModEnabled && disableRagdollEnabled)
+                {
+                    var playerRagdoll = playerTransform.GetComponent<PlayerRagdoll>();
+                    if (playerController.IsRagdollState)
+                    {
+                        ForceExitRagdoll();
+                    }
+                }
+
+                // Continue with existing physics mod adjustments
+                if (physicsModEnabled)
+                {
+                    // ... existing physics mod code ...
+                }
+            }
+
             // Process physics mod adjustments
             if (physicsModEnabled)
             {
@@ -508,6 +1184,12 @@ namespace SpeedrunPracticeMod
                 {
                     // The drag is applied in the Harmony patch
                 }
+                if (gravityModEnabled) ApplyCustomGravity();
+                if (bouncinessModEnabled || airBouncinessModEnabled) ApplyCustomAirBounciness();
+                if (ballRadiusModEnabled) ApplyCustomBallRadius();
+                if (maxGravityAngleModEnabled) ApplyCustomMaxGravityAngle();
+                if (maxTorqueModEnabled) ApplyCustomMaxTorque();
+                if (grabAbilityDragModEnabled) ApplyCustomGrabAbilityDrag();
             }
             else
             {
@@ -569,18 +1251,7 @@ namespace SpeedrunPracticeMod
             switch (action)
             {
                 case "Menu":
-                    showMenu = !showMenu;
-                    if (showMenu)
-                    {
-                        Time.timeScale = isTimeScaleActive ? timeScaleValue : normalTimeScale;
-                        Cursor.visible = true;
-                        Cursor.lockState = CursorLockMode.Confined;
-                    }
-                    else
-                    {
-                        Cursor.visible = false;
-                        Cursor.lockState = CursorLockMode.Locked;
-                    }
+                    ToggleMenu();
                     break;
                 case "Noclip":
                     ToggleNoclip();
@@ -639,40 +1310,217 @@ namespace SpeedrunPracticeMod
             Time.fixedDeltaTime = 0.02f * Time.timeScale;
             ShowNotification(isTimeScaleActive ? $"Time Scale: {timeScaleValue}x" : "Normal Time Scale");
         }
+
         private void DrawCheckpointsMenu(MenuLayout layout)
         {
-            // Checkpoint Settings Box
-            GUI.Box(layout.GetRect(0), "");
-            keepNoclipAfterTeleport = GUI.Toggle(
-                layout.GetElementRect(20),
-                keepNoclipAfterTeleport,
-                "Freeze After Teleporting"
-            );
+            // Create styles for consistent appearance
+            GUIStyle headerStyle = new GUIStyle(GUI.skin.box)
+            {
+                normal = {
+                    background = headerTexture,
+                    textColor = Color.white
+                },
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(10, 10, 5, 5)
+            };
 
-            // Toggle between preset and custom checkpoints
-            if (GUI.Button(layout.GetRect(30),
-                showingPresets ? "Show Custom Checkpoints" : "Show Preset Locations"))
+            GUIStyle labelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                normal = { textColor = Color.white }
+            };
+
+            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = {
+                    background = buttonTexture,
+                    textColor = Color.white
+                },
+                hover = { background = buttonHoverTexture },
+                active = { background = buttonTexture },
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                padding = new RectOffset(10, 10, 5, 5)
+            };
+
+            // Style for selected buttons
+            GUIStyle selectedButtonStyle = new GUIStyle(buttonStyle)
+            {
+                normal = { background = selectedTexture }
+            };
+
+            GUIStyle textFieldStyle = new GUIStyle(GUI.skin.textField)
+            {
+                normal = {
+                    background = textFieldTexture,
+                    textColor = Color.white
+                },
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(8, 8, 4, 4),
+                border = new RectOffset(2, 2, 2, 2)
+            };
+
+            // Toggle styles
+            GUIStyle toggleOnStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = toggleOnTexture },
+                hover = { background = toggleOnTexture },
+                active = { background = toggleOnTexture },
+                fixedWidth = 50,
+                fixedHeight = 24,
+                margin = new RectOffset(5, 5, 5, 5)
+            };
+
+            GUIStyle toggleOffStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = toggleOffTexture },
+                hover = { background = toggleOffTexture },
+                active = { background = toggleOffTexture },
+                fixedWidth = 50,
+                fixedHeight = 24,
+                margin = new RectOffset(5, 5, 5, 5)
+            };
+
+            // Alternating row styles
+            GUIStyle alternateRowStyle = new GUIStyle(GUI.skin.box)
+            {
+                normal = { background = alternateRowTexture },
+                padding = new RectOffset(5, 5, 5, 5),
+                margin = new RectOffset(0, 0, 0, 0)
+            };
+
+            // Delete button style
+            GUIStyle deleteButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = {
+                    background = deleteButtonTexture,
+                    textColor = Color.white
+                },
+                hover = { background = deleteButtonHoverTexture },
+                active = { background = deleteButtonTexture },
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                padding = new RectOffset(5, 5, 3, 3)
+            };
+
+            // Improved scrollbar style
+            GUIStyle verticalScrollbarStyle = new GUIStyle(GUI.skin.verticalScrollbar)
+            {
+                normal = { background = textFieldTexture }
+            };
+
+            GUIStyle verticalScrollbarThumbStyle = new GUIStyle(GUI.skin.verticalScrollbarThumb)
+            {
+                normal = { background = buttonTexture }
+            };
+
+            // Separator style
+            GUIStyle separatorStyle = new GUIStyle
+            {
+                normal = { background = separatorTexture },
+                margin = new RectOffset(0, 0, 5, 5),
+                fixedHeight = 1
+            };
+
+            // Clear UI elements
+            uiElements.Clear();
+
+            // Checkpoint Settings Header
+            GUI.Box(layout.GetRect(30), "Checkpoint Settings", headerStyle);
+
+            // Section separator
+            GUI.Box(layout.GetElementRect(1), "", separatorStyle);
+            layout.AddSpace(5);
+
+            // Convert checkbox to a toggle switch with label
+            GUI.Label(new Rect(layout.MenuX + MARGIN + PADDING, layout.CurrentY,
+                              layout.Width - 120, ELEMENT_HEIGHT), "Freeze After Teleporting:", labelStyle);
+
+            Rect toggleRect = new Rect(layout.MenuX + layout.Width - 80, layout.CurrentY, 50, 24);
+
+            // Draw toggle switch
+            if (GUI.Button(toggleRect, "", keepNoclipAfterTeleport ? toggleOnStyle : toggleOffStyle))
+            {
+                keepNoclipAfterTeleport = !keepNoclipAfterTeleport;
+            }
+
+            layout.CurrentY += 30;  // Manual adjustment for the toggle row
+
+            uiElements.Add(new UIElement(UIElementType.Button, toggleRect, "Freeze After Teleporting")
+            {
+                action = () => keepNoclipAfterTeleport = !keepNoclipAfterTeleport
+            });
+
+            // Section separator
+            GUI.Box(layout.GetElementRect(1), "", separatorStyle);
+            layout.AddSpace(5);
+
+            // Toggle between preset and custom checkpoints with arrow indicator
+            Rect toggleButtonRect = layout.GetRect(30);
+
+            string toggleButtonText = showingPresets ? "⟵ Show Custom Checkpoints" : "Show Preset Locations ⟶";
+            if (GUI.Button(toggleButtonRect, toggleButtonText, buttonStyle))
             {
                 showingPresets = !showingPresets;
                 selectedCheckpoint = "";
                 scrollPosition = Vector2.zero;
             }
+            uiElements.Add(new UIElement(UIElementType.Button, toggleButtonRect, toggleButtonText)
+            {
+                action = () => {
+                    showingPresets = !showingPresets;
+                    selectedCheckpoint = "";
+                    scrollPosition = Vector2.zero;
+                }
+            });
 
-            layout.AddSpace(PADDING);
+            // Section separator
+            GUI.Box(layout.GetElementRect(1), "", separatorStyle);
+            layout.AddSpace(5);
 
             if (showingPresets)
             {
-                // Preset Checkpoints
-                GUI.Box(layout.GetRect(280), "Preset Locations");
+                // Preset Checkpoints section
+                GUI.Box(layout.GetRect(30), "Preset Locations", headerStyle);
                 Rect viewRect = layout.GetElementRect(250);
-                Rect contentRect = new Rect(0, 0, viewRect.width - 20, presetCheckpoints.Count * 25);
+                Rect contentRect = new Rect(0, 0, viewRect.width - 20, presetCheckpoints.Count * 30);
+
+                // Apply custom scrollbar styles
+                GUI.skin.verticalScrollbar = verticalScrollbarStyle;
+                GUI.skin.verticalScrollbarThumb = verticalScrollbarThumbStyle;
 
                 scrollPosition = GUI.BeginScrollView(viewRect, scrollPosition, contentRect);
 
                 float currentY = 0;
+                int presetIndex = 0;
                 foreach (var checkpoint in presetCheckpoints)
                 {
-                    if (GUI.Button(new Rect(0, currentY, contentRect.width, 23), checkpoint.Key))
+                    // Alternate row background
+                    if (presetIndex % 2 == 1)
+                    {
+                        GUI.Box(new Rect(0, currentY, contentRect.width, 28), "", alternateRowStyle);
+                    }
+
+                    Rect buttonRect = new Rect(0, currentY, contentRect.width, 28);
+
+                    // Use button style for selected checkpoint
+                    GUIStyle checkpointButtonStyle = checkpoint.Key == selectedCheckpoint ? selectedButtonStyle : buttonStyle;
+
+                    // Check for hover
+                    string buttonId = "preset_" + checkpoint.Key;
+                    if (Event.current.type == EventType.Repaint && buttonRect.Contains(Event.current.mousePosition))
+                    {
+                        hoveredElements[buttonId] = true;
+                    }
+                    else if (Event.current.type == EventType.MouseMove && !buttonRect.Contains(Event.current.mousePosition))
+                    {
+                        hoveredElements[buttonId] = false;
+                    }
+
+                    if (GUI.Button(buttonRect, checkpoint.Key, checkpointButtonStyle))
                     {
                         selectedCheckpoint = checkpoint.Key;
                         if (Input.GetKey(KeyCode.LeftControl))
@@ -680,42 +1528,107 @@ namespace SpeedrunPracticeMod
                             TeleportToPresetCheckpoint(selectedCheckpoint);
                         }
                     }
-                    currentY += 25;
+
+                    uiElements.Add(new UIElement(UIElementType.Button, buttonRect, checkpoint.Key)
+                    {
+                        action = () => {
+                            selectedCheckpoint = checkpoint.Key;
+                            if (Input.GetKey(KeyCode.LeftControl))
+                            {
+                                TeleportToPresetCheckpoint(selectedCheckpoint);
+                            }
+                        }
+                    });
+                    presetIndex++;
+                    currentY += 30;
                 }
 
                 GUI.EndScrollView();
             }
             else
             {
-                // Custom Checkpoints
-                GUI.Box(layout.GetRect(30), "Custom Checkpoints");
+                // Custom Checkpoints section
+                GUI.Box(layout.GetRect(30), "Custom Checkpoints", headerStyle);
 
                 // New checkpoint creation
-                GUI.Label(layout.GetElementRect(20), "New Checkpoint:");
-                newCheckpointName = GUI.TextField(layout.GetElementRect(20), newCheckpointName);
+                GUI.Label(layout.GetElementRect(24), "New Checkpoint:", labelStyle);
 
-                if (GUI.Button(layout.GetElementRect(25), "Create Checkpoint Here"))
+                // Text field with placeholder and border
+                Rect textFieldRect = layout.GetElementRect(24);
+
+                // Draw border for text field
+                GUI.Box(new Rect(textFieldRect.x - 1, textFieldRect.y - 1, textFieldRect.width + 2, textFieldRect.height + 2), "",
+                       new GUIStyle { normal = { background = textFieldBorderTexture } });
+
+                // Show placeholder text if the field is empty
+                if (string.IsNullOrEmpty(newCheckpointName))
+                {
+                    GUI.Label(textFieldRect, "   Enter checkpoint name...",
+                             new GUIStyle(labelStyle) { normal = { textColor = new Color(0.7f, 0.7f, 0.7f) } });
+                }
+
+                newCheckpointName = GUI.TextField(textFieldRect, newCheckpointName, textFieldStyle);
+                uiElements.Add(new UIElement(UIElementType.TextField, textFieldRect, "New Checkpoint Name")
+                {
+                    text = newCheckpointName
+                });
+
+                Rect createButtonRect = layout.GetElementRect(28);
+
+                if (GUI.Button(createButtonRect, "Create Checkpoint Here", buttonStyle))
                 {
                     CreateNewCheckpoint();
                 }
+                uiElements.Add(new UIElement(UIElementType.Button, createButtonRect, "Create Checkpoint Here")
+                {
+                    action = CreateNewCheckpoint
+                });
 
-                layout.AddSpace(PADDING);
+                // Section separator
+                GUI.Box(layout.GetElementRect(1), "", separatorStyle);
+                layout.AddSpace(5);
 
                 // Saved checkpoints list
-                GUI.Label(layout.GetElementRect(20), "Saved Checkpoints:");
+                GUI.Label(layout.GetElementRect(24), "Saved Checkpoints:", labelStyle);
 
                 Rect viewRect = layout.GetElementRect(150);
-                Rect contentRect = new Rect(0, 0, viewRect.width - 20, customCheckpoints.Count * 25);
+                Rect contentRect = new Rect(0, 0, viewRect.width - 20, customCheckpoints.Count * 30);
+
+                // Apply custom scrollbar styles
+                GUI.skin.verticalScrollbar = verticalScrollbarStyle;
+                GUI.skin.verticalScrollbarThumb = verticalScrollbarThumbStyle;
 
                 scrollPosition = GUI.BeginScrollView(viewRect, scrollPosition, contentRect);
 
                 float currentY = 0;
                 List<string> checkpointsToRemove = new List<string>();
+                int customIndex = 0;
 
                 foreach (var checkpoint in customCheckpoints)
                 {
-                    Rect buttonRect = new Rect(0, currentY, contentRect.width - 30, 23);
-                    if (GUI.Button(buttonRect, checkpoint.Key))
+                    // Alternate row background
+                    if (customIndex % 2 == 1)
+                    {
+                        GUI.Box(new Rect(0, currentY, contentRect.width, 28), "", alternateRowStyle);
+                    }
+
+                    // Use button style for selected checkpoint
+                    GUIStyle checkpointButtonStyle = checkpoint.Key == selectedCheckpoint ? selectedButtonStyle : buttonStyle;
+
+                    Rect buttonRect = new Rect(0, currentY, contentRect.width - 34, 28);
+
+                    // Check for hover
+                    string buttonId = "custom_" + checkpoint.Key;
+                    if (Event.current.type == EventType.Repaint && buttonRect.Contains(Event.current.mousePosition))
+                    {
+                        hoveredElements[buttonId] = true;
+                    }
+                    else if (Event.current.type == EventType.MouseMove && !buttonRect.Contains(Event.current.mousePosition))
+                    {
+                        hoveredElements[buttonId] = false;
+                    }
+
+                    if (GUI.Button(buttonRect, checkpoint.Key, checkpointButtonStyle))
                     {
                         selectedCheckpoint = checkpoint.Key;
                         if (selectedCheckpoint != TEMP_CHECKPOINT_NAME)
@@ -728,12 +1641,46 @@ namespace SpeedrunPracticeMod
                         }
                     }
 
-                    Rect deleteRect = new Rect(contentRect.width - 25, currentY, 25, 23);
-                    if (GUI.Button(deleteRect, "X"))
+                    uiElements.Add(new UIElement(UIElementType.Button, buttonRect, checkpoint.Key)
+                    {
+                        action = () => {
+                            selectedCheckpoint = checkpoint.Key;
+                            if (selectedCheckpoint != TEMP_CHECKPOINT_NAME)
+                            {
+                                temporaryCheckpoint = null;
+                            }
+                            if (Input.GetKey(KeyCode.LeftControl))
+                            {
+                                TeleportToCustomCheckpoint(selectedCheckpoint);
+                            }
+                        }
+                    });
+
+                    // More distinct delete button
+                    Rect deleteRect = new Rect(contentRect.width - 32, currentY, 28, 28);
+
+                    // Check for hover on delete button
+                    string deleteId = "delete_" + checkpoint.Key;
+                    if (Event.current.type == EventType.Repaint && deleteRect.Contains(Event.current.mousePosition))
+                    {
+                        hoveredElements[deleteId] = true;
+                    }
+                    else if (Event.current.type == EventType.MouseMove && !deleteRect.Contains(Event.current.mousePosition))
+                    {
+                        hoveredElements[deleteId] = false;
+                    }
+
+                    if (GUI.Button(deleteRect, "✕", deleteButtonStyle))
                     {
                         checkpointsToRemove.Add(checkpoint.Key);
                     }
-                    currentY += 25;
+
+                    uiElements.Add(new UIElement(UIElementType.Button, deleteRect, "X")
+                    {
+                        action = () => checkpointsToRemove.Add(checkpoint.Key)
+                    });
+                    customIndex++;
+                    currentY += 30;
                 }
 
                 GUI.EndScrollView();
@@ -745,20 +1692,104 @@ namespace SpeedrunPracticeMod
                 }
             }
 
+            // Selected checkpoint section
             if (!string.IsNullOrEmpty(selectedCheckpoint))
             {
-                DrawSelectedCheckpoint(layout);
+                // Section separator
+                GUI.Box(layout.GetElementRect(1), "", separatorStyle);
+                layout.AddSpace(5);
+
+                GUI.Box(layout.GetRect(30), "Selected Checkpoint", headerStyle);
+                GUI.Label(layout.GetElementRect(24), $"Selected: {selectedCheckpoint}", labelStyle);
+
+                Rect teleportButtonRect = layout.GetElementRect(28);
+
+                if (GUI.Button(teleportButtonRect, "Teleport", buttonStyle))
+                {
+                    if (showingPresets)
+                        TeleportToPresetCheckpoint(selectedCheckpoint);
+                    else
+                        TeleportToCustomCheckpoint(selectedCheckpoint);
+                }
+
+                uiElements.Add(new UIElement(UIElementType.Button, teleportButtonRect, "Teleport")
+                {
+                    action = () => {
+                        if (showingPresets)
+                            TeleportToPresetCheckpoint(selectedCheckpoint);
+                        else
+                            TeleportToCustomCheckpoint(selectedCheckpoint);
+                    }
+                });
             }
 
-            // Help text
-            GUI.Box(layout.GetRect(0), "");
+            // Section separator
+            GUI.Box(layout.GetElementRect(1), "", separatorStyle);
+            layout.AddSpace(5);
+
+            // Help text at the bottom
+            GUIStyle helpStyle = new GUIStyle(labelStyle)
+            {
+                normal = { textColor = new Color(0.7f, 0.7f, 0.7f) }
+            };
+
             GUI.Label(layout.GetElementRect(40),
-                $"Ctrl + Click to quick teleport\nPress {teleportKey.Value} to teleport to selected checkpoint");
+                $"Ctrl + Click to quick teleport\nPress {teleportKey.Value} to teleport to selected checkpoint",
+                helpStyle);
         }
         private void OnGUI()
         {
-            GUI.depth = 0;
+            InitializeTextures();
 
+            // Create styles
+            GUIStyle windowStyle = new GUIStyle(GUI.skin.box)
+            {
+                normal = { background = backgroundTexture },
+                padding = new RectOffset(10, 10, 10, 10)
+            };
+
+            GUIStyle titleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 16,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.white },
+                alignment = TextAnchor.UpperCenter
+            };
+
+            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = {
+                    background = buttonTexture,
+                    textColor = Color.white
+                },
+                hover = { background = buttonHoverTexture },
+                active = { background = buttonTexture },
+                fontSize = 12,
+                padding = new RectOffset(10, 10, 5, 5)
+            };
+
+            // Add toggle styles
+            GUIStyle toggleOnStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = toggleOnTexture },
+                hover = { background = toggleOnTexture },
+                active = { background = toggleOnTexture },
+                fixedWidth = 50,
+                fixedHeight = 24,
+                margin = new RectOffset(5, 5, 5, 5)
+            };
+
+            GUIStyle toggleOffStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = toggleOffTexture },
+                hover = { background = toggleOffTexture },
+                active = { background = toggleOffTexture },
+                fixedWidth = 50,
+                fixedHeight = 24,
+                margin = new RectOffset(5, 5, 5, 5)
+            };
+
+            // Notification display
             if (Time.unscaledTime < notificationTime)
             {
                 GUI.Label(new Rect(Screen.width / 2 - 100, 20, 200, 30), notificationText);
@@ -766,70 +1797,90 @@ namespace SpeedrunPracticeMod
 
             GUI.Label(new Rect(Screen.width - 120, Screen.height - 25, 100, 20), "Practice Mod");
 
+            // Update main window position based on uiOnRightSide
+            float windowX = uiOnRightSide ? Screen.width - MENU_WIDTH - 10 : 10;
+
             if (!showMenu) return;
 
-            float menuX = Screen.width - MENU_WIDTH - 10;
+            // Update the main window position
+            GUI.Box(new Rect(windowX, 10, MENU_WIDTH, Screen.height - 20), "", windowStyle);
+            GUI.Label(new Rect(windowX, 20, MENU_WIDTH, 25), "Practice Mod", titleStyle);
 
-            // Main background box
-            GUI.Box(new Rect(menuX, 10, MENU_WIDTH, 1200), "Practice Menu");
-
-            // Category buttons - positioned inside the main box
+            // Update button positions
+            float buttonY = 50;
             float buttonWidth = (MENU_WIDTH - 40) / 3;
-            float buttonY = 40;
 
-            if (GUI.Button(new Rect(menuX + 20, buttonY, buttonWidth, 30), "Movement"))
+            // Update all button X positions
+            float baseButtonX = windowX + 10;
+
+            // Movement button
+            Rect movementButtonRect = new Rect(baseButtonX, buttonY, buttonWidth, 30);
+
+            if (GUI.Button(movementButtonRect, "Movement",
+                          currentCategory == MenuCategory.Movement ? buttonStyle : buttonStyle))
             {
                 currentCategory = currentCategory == MenuCategory.Movement ? MenuCategory.None : MenuCategory.Movement;
             }
-            if (GUI.Button(new Rect(menuX + buttonWidth + 30, buttonY, buttonWidth, 30), "Checkpoints"))
+            uiElements.Add(new UIElement(UIElementType.Button, movementButtonRect, "Movement")
+            {
+                action = () => currentCategory = currentCategory == MenuCategory.Movement ? MenuCategory.None : MenuCategory.Movement
+            });
+
+            // Checkpoints button
+            Rect checkpointsButtonRect = new Rect(baseButtonX + buttonWidth + 10, buttonY, buttonWidth, 30);
+
+            if (GUI.Button(checkpointsButtonRect, "Checkpoints",
+                          currentCategory == MenuCategory.Checkpoints ? buttonStyle : buttonStyle))
             {
                 currentCategory = currentCategory == MenuCategory.Checkpoints ? MenuCategory.None : MenuCategory.Checkpoints;
             }
-            if (GUI.Button(new Rect(menuX + (buttonWidth * 2) + 40, buttonY, buttonWidth, 30), "Controls"))
+            uiElements.Add(new UIElement(UIElementType.Button, checkpointsButtonRect, "Checkpoints")
+            {
+                action = () => currentCategory = currentCategory == MenuCategory.Checkpoints ? MenuCategory.None : MenuCategory.Checkpoints
+            });
+
+            // Controls button
+            Rect controlsButtonRect = new Rect(baseButtonX + (buttonWidth + 10) * 2, buttonY, buttonWidth, 30);
+
+            if (GUI.Button(controlsButtonRect, "Controls",
+                          currentCategory == MenuCategory.Controls ? buttonStyle : buttonStyle))
             {
                 currentCategory = currentCategory == MenuCategory.Controls ? MenuCategory.None : MenuCategory.Controls;
             }
-
-            MenuLayout layout = new MenuLayout(menuX, buttonY + 40, MENU_WIDTH);
-
-            // Draw category content
-            switch (currentCategory)
+            uiElements.Add(new UIElement(UIElementType.Button, controlsButtonRect, "Controls")
             {
-                case MenuCategory.Movement:
-                    DrawMovementMenu(layout);
-                    break;
-                case MenuCategory.Controls:
-                    DrawControlsMenu(layout);
-                    break;
-                case MenuCategory.Checkpoints:
-                    DrawCheckpointsMenu(layout);
-                    break;
-            }
+                action = () => currentCategory = currentCategory == MenuCategory.Controls ? MenuCategory.None : MenuCategory.Controls
+            });
 
-            // Process key bindings if waiting for a key
-            if (waitingForKeyPress)
+            // Content area
+            if (currentCategory != MenuCategory.None)
             {
-                Event e = Event.current;
-                if (e.isKey && e.type == EventType.KeyDown)
+                // Update content area position
+                Rect contentArea = new Rect(baseButtonX + 10, buttonY + 40, MENU_WIDTH - 40, Screen.height - buttonY - 60);
+                GUI.BeginGroup(contentArea);
+
+                // Set up menu layout
+                MenuLayout layout = new MenuLayout(0, 0, contentArea.width);
+
+                // Draw category content
+                switch (currentCategory)
                 {
-                    if (e.keyCode == KeyCode.Backspace)
-                    {
-                        // Clear the binding
-                        ClearBinding(currentBindingAction);
-                    }
-                    else if (e.keyCode != KeyCode.Escape) // Ignore Escape key
-                    {
-                        AssignKeyBinding(currentBindingAction, e.keyCode);
-                    }
-                    else
-                    {
-                        // Cancel binding if Escape is pressed
-                        waitingForKeyPress = false;
-                        currentBindingAction = "";
-                        ShowNotification("Key binding canceled");
-                    }
+                    case MenuCategory.Movement:
+                        DrawMovementMenu(layout);
+                        break;
+                    case MenuCategory.Controls:
+                        DrawControlsMenu(layout);
+                        break;
+                    case MenuCategory.Checkpoints:
+                        DrawCheckpointsMenu(layout);
+                        break;
                 }
+
+                GUI.EndGroup();
             }
+
+            // Handle navigation at the end
+            HandleMenuNavigation();
         }
 
         private void ShowNotification(string text)
@@ -980,15 +2031,24 @@ namespace SpeedrunPracticeMod
                 // Check if player is in ragdoll state
                 if (playerController != null && playerController.IsRagdollState)
                 {
-                    // Disable ragdoll before enabling noclip
-                    if (playerRagdoll != null)
+                    if (physicsModEnabled && disableRagdollEnabled)
                     {
-                        playerRagdoll.SetRagdollActive(false, false);
+                        // We've disabled ragdoll, so exit it before enabling noclip
+                        ForceExitRagdoll();
+                        EnableNoclip();
                     }
-                    // Change to move state
-                    playerController.ChangeToMoveState();
-                    // Wait a frame to ensure ragdoll is fully disabled
-                    StartCoroutine(EnableNoclipNextFrame());
+                    else
+                    {
+                        // Standard ragdoll exit procedure
+                        if (playerRagdoll != null)
+                        {
+                            playerRagdoll.SetRagdollActive(false, false);
+                        }
+                        // Change to move state
+                        playerController.ChangeToMoveState();
+                        // Wait a frame to ensure ragdoll is fully disabled
+                        StartCoroutine(EnableNoclipNextFrame());
+                    }
                 }
                 else
                 {
@@ -1171,36 +2231,35 @@ namespace SpeedrunPracticeMod
 
         private void StoreOriginalValues()
         {
-            if (playerController != null && !valuesStored)
+            if (valuesStored)
+                return;
+
+            // Get physics components if needed
+            if (torquePhysics == null)
             {
-                // Store original friction values
-                if (playerController.MainBallCollider?.material != null)
+                playerController = FindObjectOfType<PlayerController>();
+                if (playerController != null)
                 {
-                    originalFriction = playerController.MainBallCollider.material.dynamicFriction;
-                    customFriction = originalFriction;
+                    torquePhysics = playerController.GetComponent<TorquePhysics>();
                 }
-                // Store original torque physics values
-                torquePhysics = playerController.TorquePhysics;
-                if (torquePhysics != null)
-                {
-                    var torqueField = typeof(TorquePhysics).GetField("torque", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (torqueField != null)
-                    {
-                        originalAcceleration = (float)torqueField.GetValue(torquePhysics);
-                        customAcceleration = originalAcceleration;
-                    }
-                    var dragField = typeof(TorquePhysics).GetField("drag", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (dragField != null)
-                    {
-                        originalDrag = (float)dragField.GetValue(torquePhysics);
-                        customDrag = originalDrag;
-                    }
-                }
+            }
+
+            if (torquePhysics != null)
+            {
+                // Store original values
+                originalFriction = torquePhysics.SlopeFrictionCurve.keys[0].value;
+                originalAcceleration = torquePhysics.Acceleration;
+                originalDrag = torquePhysics.VelocityDrag;
+                originalGravity = torquePhysics.GravityMagnitude;
+                originalMaxGravityAngle = torquePhysics.MaxGravityAngle;
+                originalMaxTorque = torquePhysics.MaxTorque;
+                originalGrabAbilityDrag = torquePhysics.GrabAbilityDrag;
+                originalBallRadius = torquePhysics.BallRadius;
+                originalGroundedBounciness = torquePhysics.GroundBounciness;
+                originalAirBounciness = torquePhysics.AirBounciness;
+
                 valuesStored = true;
-                Debug.Log("Original values stored!");
-                Debug.Log($"Original Friction: {originalFriction}");
-                Debug.Log($"Original Acceleration: {originalAcceleration}");
-                Debug.Log($"Original Drag: {originalDrag}");
+                Debug.Log("Original physics values stored");
             }
         }
 
@@ -1228,10 +2287,249 @@ namespace SpeedrunPracticeMod
 
         private void ApplyCustomFriction()
         {
-            if (playerController?.MainBallCollider?.material != null)
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
             {
-                playerController.MainBallCollider.material.dynamicFriction = customFriction;
-                playerController.MainBallCollider.material.staticFriction = customFriction;
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (frictionModEnabled)
+                    {
+                        // Get the current keys from the curve
+                        Keyframe[] keys = physicsPreset.slopeFrictionCurve.keys;
+
+                        // Modify the friction value while keeping the same x coordinates
+                        for (int i = 0; i < keys.Length; i++)
+                        {
+                            keys[i].value = customFriction;
+                        }
+
+                        // Create a new curve with the modified keys
+                        AnimationCurve newCurve = new AnimationCurve(keys);
+                        physicsPreset.slopeFrictionCurve = newCurve;
+                    }
+                    else
+                    {
+                        // Reset to original friction
+                        Keyframe[] keys = physicsPreset.slopeFrictionCurve.keys;
+                        for (int i = 0; i < keys.Length; i++)
+                        {
+                            keys[i].value = originalFriction;
+                        }
+                        AnimationCurve newCurve = new AnimationCurve(keys);
+                        physicsPreset.slopeFrictionCurve = newCurve;
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomGravity()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (gravityModEnabled)
+                    {
+                        physicsPreset.gravity = customGravity;
+                    }
+                    else
+                    {
+                        physicsPreset.gravity = originalGravity;
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomBounciness()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (bouncinessModEnabled)
+                    {
+                        physicsPreset.groundedBounciness = customBounciness;
+                        physicsPreset.airBounciness = customBounciness;
+                    }
+                    else
+                    {
+                        physicsPreset.groundedBounciness = originalGroundedBounciness;
+                        physicsPreset.airBounciness = originalAirBounciness;
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomBallRadius()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (ballRadiusModEnabled)
+                    {
+                        physicsPreset.ballRadius = customBallRadius;
+
+                        // Update the collider radius if we can access it
+                        if (playerRigidbody != null)
+                        {
+                            SphereCollider sphereCollider = playerRigidbody.GetComponent<SphereCollider>();
+                            if (sphereCollider != null)
+                            {
+                                sphereCollider.radius = customBallRadius;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        physicsPreset.ballRadius = originalBallRadius;
+
+                        // Reset collider radius
+                        if (playerRigidbody != null)
+                        {
+                            SphereCollider sphereCollider = playerRigidbody.GetComponent<SphereCollider>();
+                            if (sphereCollider != null)
+                            {
+                                sphereCollider.radius = originalBallRadius;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomMaxGravityAngle()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (maxGravityAngleModEnabled)
+                    {
+                        physicsPreset.maxGravityAngle = customMaxGravityAngle;
+                    }
+                    else
+                    {
+                        physicsPreset.maxGravityAngle = originalMaxGravityAngle;
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomMaxTorque()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (maxTorqueModEnabled)
+                    {
+                        physicsPreset.maxTorque = customMaxTorque;
+                    }
+                    else
+                    {
+                        physicsPreset.maxTorque = originalMaxTorque;
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomGrabAbilityDrag()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (grabAbilityDragModEnabled)
+                    {
+                        physicsPreset.grabAbilityDrag = customGrabAbilityDrag;
+                    }
+                    else
+                    {
+                        physicsPreset.grabAbilityDrag = originalGrabAbilityDrag;
+                    }
+                }
+            }
+        }
+
+        private void ApplyCustomAirBounciness()
+        {
+            if (torquePhysics == null)
+                return;
+
+            // Use reflection to get and set values
+            var physicsPresetField = torquePhysics.GetType().GetField("physicsPreset", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (physicsPresetField != null)
+            {
+                var physicsPreset = physicsPresetField.GetValue(torquePhysics) as TorquePlayerPhysicsPreset;
+
+                if (physicsPreset != null)
+                {
+                    if (airBouncinessModEnabled)
+                    {
+                        physicsPreset.airBounciness = customAirBounciness;
+                    }
+                    else
+                    {
+                        physicsPreset.airBounciness = originalAirBounciness;
+                    }
+                }
             }
         }
 
@@ -1265,6 +2563,107 @@ namespace SpeedrunPracticeMod
                 horizontalVelocity = horizontalVelocity.normalized * Instance.minSpeed;
             }
             __instance.Rigidbody.velocity = new Vector3(horizontalVelocity.x, verticalVelocity, horizontalVelocity.z);
+        }
+
+        // Add method to create textures
+        private Texture2D CreateColorTexture(Color color)
+        {
+            Texture2D texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            return texture;
+        }
+
+        // Add method to initialize textures
+        private void InitializeTextures()
+        {
+            if (backgroundTexture == null)
+            {
+                backgroundTexture = CreateColorTexture(new Color(0.1f, 0.1f, 0.1f, 0.95f));
+                buttonTexture = CreateColorTexture(new Color(0.3f, 0.5f, 0.8f, 1f)); // Blue button
+                buttonHoverTexture = CreateColorTexture(new Color(0.4f, 0.6f, 0.9f, 1f)); // Lighter blue on hover
+                textFieldTexture = CreateColorTexture(new Color(0.15f, 0.15f, 0.15f, 1f));
+                headerTexture = CreateColorTexture(new Color(0.05f, 0.05f, 0.05f, 0.7f));
+                selectedTexture = CreateColorTexture(new Color(0.4f, 0.6f, 0.9f, 0.8f));
+
+                // New textures for enhanced UI
+                alternateRowTexture = CreateColorTexture(new Color(0.12f, 0.12f, 0.12f, 0.5f));
+                toggleOnTexture = CreateColorTexture(new Color(0.3f, 0.7f, 0.4f, 1f)); // Green for ON
+                toggleOffTexture = CreateColorTexture(new Color(0.5f, 0.5f, 0.5f, 1f)); // Gray for OFF
+                separatorTexture = CreateColorTexture(new Color(0.4f, 0.4f, 0.4f, 0.5f));
+                textFieldBorderTexture = CreateColorTexture(new Color(0.4f, 0.4f, 0.4f, 1f));
+                deleteButtonTexture = CreateColorTexture(new Color(0.8f, 0.2f, 0.2f, 1f)); // Red for delete
+                deleteButtonHoverTexture = CreateColorTexture(new Color(0.9f, 0.3f, 0.3f, 1f)); // Brighter red on hover
+            }
+        }
+
+        // Add navigation handling method
+        private void HandleMenuNavigation()
+        {
+            if (navigationCooldown > 0)
+            {
+                navigationCooldown -= Time.deltaTime;
+                return;
+            }
+
+            bool navigationInput = false;
+
+            // Check for select key to activate selected element
+            bool selectPressed = Input.GetKeyDown(KeyCode.Return) ||
+                               Input.GetKeyDown(KeyCode.JoystickButton0);
+
+            // Only respond to controller/keyboard input if a UI element is selected
+            if (selectPressed && uiElements.Count > 0 &&
+                (Input.GetAxis("Vertical") != 0 || Input.GetAxis("Horizontal") != 0))
+            {
+                // Find first interactable element to activate when using controller/keyboard
+                foreach (var element in uiElements)
+                {
+                    if (element.action != null)
+                    {
+                        element.action();
+                        navigationInput = true;
+                        break;
+                    }
+                }
+            }
+
+            if (navigationInput)
+            {
+                navigationCooldown = NAVIGATION_COOLDOWN_TIME;
+            }
+        }
+
+        private void ToggleMenu()
+        {
+            showMenu = !showMenu;
+
+            if (showMenu)
+            {
+                // Remove: selectedElementIndex = 0;
+
+                // Show cursor
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.Confined;
+            }
+            else
+            {
+                // Hide cursor when closing menu
+                Cursor.visible = false;
+                Cursor.lockState = CursorLockMode.Locked;
+            }
+        }
+
+        // Add this method after StoreOriginalValues()
+        private void ForceExitRagdoll()
+        {
+            if (playerTransform == null || playerController == null) return;
+
+            // Check if player is in ragdoll state and exit if needed
+            if (playerController.IsRagdollState)
+            {
+                playerController.ChangeToMoveState();
+            }
         }
     }
 }

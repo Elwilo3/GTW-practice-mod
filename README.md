@@ -11,7 +11,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
    - Run the game once and close it
 
 2. **Download and Install the Mod:**
-   - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeMod.dll) and ❗(Optional)[UpdateChecker.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/UpdateChecker.dll)
+   - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/blob/main/files/PracticeModhotfix.dll) and ❗(Optional)[UpdateChecker.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/UpdateChecker.dll)
    - Move PracticeMod.dll and UpdateChecker.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`
 
 ## New Features & Improvements

@@ -1,7 +1,7 @@
 ![status: inactive](https://img.shields.io/badge/status-inactive-red)
-> **The newest version of this mod is available on [Nexus Mods](https://www.nexusmods.com/gettowork/mods/2)**  
+> **The newest/best version of this mod is now available on [Nexus Mods](https://www.nexusmods.com/gettowork/mods/2)**  
 # This project is no longer maintained. It is outdated and not actively developed, but preserved for reference.
-> **The newest version of this mod is available on [Nexus Mods](https://www.nexusmods.com/gettowork/mods/2)** 
+> **The newest/best version of this mod is now available on [Nexus Mods](https://www.nexusmods.com/gettowork/mods/2)** 
 
 
 

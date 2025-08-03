@@ -1,7 +1,15 @@
-# Get To Work Mod
+![status: inactive](https://img.shields.io/badge/status-inactive-red)
+> **The newest version of this mod is available on [Nexus Mods](https://www.nexusmods.com/gettowork/mods/2)**  
+# This project is no longer maintained. It is outdated and not actively developed, but preserved for reference.
+
+
+
+
+
+## Get To Work PracticeMod
 A practice mod for Get To Work that allows players to create checkpoints and NoCLip for easier practice.
 
-# VIDEO INSTALLATION GUIDE (skip to 2:04) 
+## VIDEO INSTALLATION GUIDE (skip to 2:04) 
    - [video](https://www.youtube.com/watch?v=_EK-lcjYsJo)
    - Note: Features shown in the video are outdated as the mod has been updated many with new and improved features
 
@@ -14,12 +22,12 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
    - Download [PracticeMod.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/PracticeModhotfix.dll) and ❗(Optional)[UpdateChecker.dll](https://github.com/Elwilo3/GTW-practice-mod/raw/refs/heads/main/files/UpdateChecker.dll)
    - Move PracticeMod.dll and UpdateChecker.dll into `Steam\steamapps\common\Get To Work/BepInEx/plugins`
 
-## New Features & Improvements
+### New Features & Improvements
 - Physics settings
 - Added controller support(fr this time) go to the control menu and bind your controller controls.
 - Fixed many minor and medium bugs
 
-## Controls & Usage
+### Controls & Usage
 - Tab: Open/close Mod Menu
 - Customizable keybinds for:
   - NoClip toggle
@@ -32,7 +40,7 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
   - Checkpoints: Create, manage, and teleport
   - Controls: Customize keybinds for controller and keyboard
 
-## Uninstallation
+### Uninstallation
 1. **Temporary Removal:**
    - Remove PracticeMod.dll and UpdateChecker.dll from the plugins folder
    - Game will run normally without mod features
@@ -46,13 +54,13 @@ A practice mod for Get To Work that allows players to create checkpoints and NoC
      - changelog.txt
    - Verify game files through Steam
 
-## Note
+### Note
 This mod is for practice only and not allowed in speedrun submissions!
 Source code available in (Filename).cs for reference.
 
 ⚠️ **Important:** Remove all mod files before submitting speedruns!
 
-## Credits
+### Credits
 Created by [@finn_the_leech](twitch.tv/finn_the_leech) on Twitch. 
 Includes contributions from [@definitelyzck](youtube.com/@definitelyzck)
 
